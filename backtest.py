@@ -83,6 +83,8 @@ def generate_html_report(results, params, output_file="backtest_report.html"):
                     <th>Detected At</th>
                     <th>Type</th>
                     <th>Price Range</th>
+                    <th>S/R Start Bar</th>
+                    <th>S/R End Bar</th>
                     <th>False Breakout %</th>
                     <th>Previous Matches</th>
                 </tr>
@@ -96,6 +98,8 @@ def generate_html_report(results, params, output_file="backtest_report.html"):
                         Low: {{ "%.2f"|format(res.price_range.low) }}<br>
                         High: {{ "%.2f"|format(res.price_range.high) }}
                     </td>
+                    <td>{{ res.start_time }}</td>
+                    <td>{{ res.end_time }}</td>
                     <td>{{ "%.2f"|format(res.false_breakout_pct) }}%</td>
                     <td class="prev-matches">
                         <ul>
