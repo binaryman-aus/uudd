@@ -131,8 +131,14 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const date = new Date(lastBarTime * 1000);
                     const utcStr = date.toUTCString().replace(' GMT', '');
                     const localStr = date.toLocaleString();
+                    
+                    // Outdated check (H1 bars: if more than 2 hours old, show warning)
+                    const nowTs = Math.floor(Date.now() / 1000);
+                    const isOutdated = (nowTs - lastBarTime) > (3600 * 2);
+                    const warning = isOutdated ? ' <span style="color: white; background: #ef5350; padding: 1px 4px; border-radius: 3px; font-weight: bold; font-size: 0.8em; margin-left: 5px;">⚠️ OUTDATED</span>' : '';
+
                     document.getElementById(`title-${symbol}`).innerHTML =
-                        `${symbol} | <span style="font-weight: normal; font-size: 0.85em; color: #666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
+                        `${symbol}${warning} | <span style="font-weight: normal; font-size: 0.85em; color: #666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
                 const chart = LightweightCharts.createChart(container, {
