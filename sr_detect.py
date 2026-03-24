@@ -83,6 +83,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         
         if count >= n_bars * confirm_percentage and not invalid and last_in_range and wick_valid:
             if count > max_high_count:
+                in_range_times = recent_df[in_range_mask]['time']
                 max_high_count = count
                 best_resistance = {
                     "type": "resistance",
@@ -90,8 +91,8 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
-                    "start_time": recent_df['time'].iloc[0].isoformat(),
-                    "end_time": recent_df['time'].iloc[-1].isoformat()
+                    "start_time": in_range_times.iloc[0].isoformat(),
+                    "end_time": in_range_times.iloc[-1].isoformat()
                 }
 
     # 2. Support detection (check lows)
@@ -124,6 +125,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         
         if count >= n_bars * confirm_percentage and not invalid and last_in_range and wick_valid:
             if count > max_low_count:
+                in_range_times = recent_df[in_range_mask]['time']
                 max_low_count = count
                 best_support = {
                     "type": "support",
@@ -131,8 +133,8 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
-                    "start_time": recent_df['time'].iloc[0].isoformat(),
-                    "end_time": recent_df['time'].iloc[-1].isoformat()
+                    "start_time": in_range_times.iloc[0].isoformat(),
+                    "end_time": in_range_times.iloc[-1].isoformat()
                 }
 
     # Decide which one to report (or both)

@@ -75,20 +75,20 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
     <html>
     <head>
         <title>S/R Detection Backtest Report (W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm }}, ATR:{{ params.atr_period }}, Wick:{{ params.wick }})</title>
-        <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+        <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
         <style>
             body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
             h1 { color: #333; }
             h2 { color: #555; font-size: 1.2em; }
             #chart-container { 
                 width: 100%; 
-                height: 500px; 
-                margin-top: 20px; 
+                height: 700px; 
+                margin-top: 10px; 
                 background: white; 
                 border: 1px solid #ddd;
                 border-radius: 4px;
             }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
             th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
             th { background-color: #007bff; color: white; }
             tr:nth-child(even) { background-color: #f2f2f2; }
@@ -99,9 +99,13 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
         </style>
     </head>
     <body>
-        <h1>S/R Detection Backtest Report</h1>
-        <h2>Parameters: Window Size: {{ params.window }}, N-Bars: {{ params.nbars }}, ATR Threshold: {{ params.threshold }}, Confirmation: {{ params.confirm*100 }}%, ATR Period: {{ params.atr_period }}, Min Wick: {{ params.wick*100 }}%</h2>
-        <p>Generated at: {{ now }}</p>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;">
+            <h1 style="margin: 0; font-size: 1.5em;">S/R Backtest Report</h1>
+            <div style="font-size: 0.9em; color: #666;">
+                <strong>Params:</strong> W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm*100 }}%, ATR:{{ params.atr_period }}, Wick:{{ params.wick*100 }}%
+                | <strong>Generated:</strong> {{ now }}
+            </div>
+        </div>
         
         <div id="chart-container"></div>
 
@@ -145,9 +149,12 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
             const chartData = {{ chart_data_json }};
             const srResults = {{ sr_results_json }};
 
-            const chart = LightweightCharts.createChart(document.getElementById('chart-container'), {
+            const container = document.getElementById('chart-container');
+            const chart = LightweightCharts.createChart(container, {
+                width: container.offsetWidth,
+                height: 700,
                 layout: {
-                    backgroundColor: '#ffffff',
+                    background: { type: 'solid', color: 'white' },
                     textColor: '#333',
                 },
                 grid: {
@@ -170,28 +177,44 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
 
             candleSeries.setData(chartData);
 
-            // Add S/R zones as horizontal price lines or markers
-            // For visualization, we'll draw lines for the ranges
+            // Add S/R zones as rectangles (using Baseline series for precise boxes)
             srResults.forEach(res => {
-                const color = res.result === 'support' ? 'rgba(38, 166, 154, 0.2)' : 'rgba(239, 83, 80, 0.2)';
-                const lineColor = res.result === 'support' ? '#26a69a' : '#ef5350';
+                const color = res.result === 'support' ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)';
+                const borderColor = res.result === 'support' ? '#26a69a' : '#ef5350';
                 
-                // Add price lines for the range
-                candleSeries.createPriceLine({
-                    price: res.price_range.low,
-                    color: lineColor,
+                const boxSeries = chart.addBaselineSeries({
+                    baseValue: { type: 'price', price: res.price_range.low },
+                    topFillColor1: color,
+                    topFillColor2: color,
+                    topLineColor: borderColor,
+                    bottomFillColor1: 'transparent',
+                    bottomFillColor2: 'transparent',
+                    bottomLineColor: 'transparent',
                     lineWidth: 1,
-                    lineStyle: 2, // Dashed
-                    axisLabelVisible: true,
-                    title: res.result.toUpperCase() + ' LOW',
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                    crosshairMarkerVisible: false,
                 });
-                candleSeries.createPriceLine({
-                    price: res.price_range.high,
-                    color: lineColor,
-                    lineWidth: 1,
-                    lineStyle: 2, // Dashed
-                    axisLabelVisible: true,
-                    title: res.result.toUpperCase() + ' HIGH',
+
+                const startTime = Math.floor(new Date(res.start_time).getTime() / 1000);
+                const endTime = Math.floor(new Date(res.end_time).getTime() / 1000);
+
+                // Add data points at every bar in the range
+                const boxData = chartData
+                    .filter(d => d.time >= startTime && d.time <= endTime)
+                    .map(d => ({
+                        time: d.time,
+                        value: res.price_range.high
+                    }));
+                
+                boxSeries.setData(boxData);
+            });
+
+            // Handle responsive resizing
+            window.addEventListener('resize', () => {
+                chart.applyOptions({
+                    width: container.offsetWidth,
+                    height: 700
                 });
             });
 
