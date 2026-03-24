@@ -1,8 +1,6 @@
 name: Hourly S/R Dashboard
 
 on:
-  schedule:
-    - cron: '1 * * * *'  # 1 minute past every hour
   repository_dispatch:
     types: [trigger-dashboard] # API-based trigger for precise timing
   push:
