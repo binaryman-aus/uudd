@@ -50,7 +50,7 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0
     print(f"Backtest complete. Found {len(results)} detections.")
     return results
 
-def generate_html_report(results, output_file="backtest_report.html"):
+def generate_html_report(results, params, output_file="backtest_report.html"):
     """
     Generates an HTML report from the backtest results.
     """
@@ -58,10 +58,11 @@ def generate_html_report(results, output_file="backtest_report.html"):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>S/R Detection Backtest Report</title>
+        <title>S/R Detection Backtest Report (W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm }})</title>
         <style>
             body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
             h1 { color: #333; }
+            h2 { color: #555; font-size: 1.2em; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
             th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
             th { background-color: #007bff; color: white; }
@@ -74,6 +75,7 @@ def generate_html_report(results, output_file="backtest_report.html"):
     </head>
     <body>
         <h1>S/R Detection Backtest Report</h1>
+        <h2>Parameters: Window Size: {{ params.window }}, N-Bars: {{ params.nbars }}, ATR Threshold: {{ params.threshold }}, Confirmation: {{ params.confirm*100 }}%</h2>
         <p>Generated at: {{ now }}</p>
         <table>
             <thead>
@@ -111,7 +113,7 @@ def generate_html_report(results, output_file="backtest_report.html"):
     """
     
     template = Template(template_str)
-    html_content = template.render(results=results, now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    html_content = template.render(results=results, params=params, now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     
     with open(output_file, "w") as f:
         f.write(html_content)
@@ -154,6 +156,7 @@ if __name__ == "__main__":
         confirm=args.confirm
     )
     if backtest_results:
-        generate_html_report(backtest_results)
+        # Pass all args to report generator
+        generate_html_report(backtest_results, vars(args))
     else:
         print("No results to report.")
