@@ -1,11 +1,11 @@
 import json
 import os
 import pandas as pd
-from sr_detect import detect_sr
+from sr_detect import detect_sr, load_config
 from jinja2 import Template
 from datetime import datetime
 
-def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0.5, atr_period=14, wick_percentage=0.4):
+def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, min_bars=5, atr_period=14, wick_percentage=0.4):
     """
     Runs a sliding window backtest on OHLCV data.
     """
@@ -28,7 +28,7 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0
 
     results = []
     print(f"Running backtest on {total_bars} bars with window size {window_size}...")
-    print(f"S/R Params: nbars={nbars}, threshold={threshold}, confirm={confirm}, atr_period={atr_period}, wick={wick_percentage}")
+    print(f"S/R Params: nbars={nbars}, threshold={threshold}, min_bars={min_bars}, atr_period={atr_period}, wick={wick_percentage}")
 
     # Sliding window
     for i in range(total_bars - window_size + 1):
@@ -39,7 +39,7 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0
             window_data, 
             n_bars=nbars, 
             threshold_factor=threshold, 
-            confirm_percentage=confirm,
+            min_bars=min_bars,
             atr_period=atr_period,
             wick_percentage=wick_percentage
         )
@@ -56,6 +56,9 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
     """
     Generates an HTML report from the backtest results including a chart.
     """
+    # Extract symbol from data
+    symbol = full_ohlcv[0].get('symbol', 'Unknown') if full_ohlcv else 'Unknown'
+
     # Prepare data for Lightweight Charts
     chart_data = []
     for bar in full_ohlcv:
@@ -74,7 +77,7 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
     <!DOCTYPE html>
     <html>
     <head>
-        <title>S/R Detection Backtest Report (W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm }}, ATR:{{ params.atr_period }}, Wick:{{ params.wick }})</title>
+        <title>{{ symbol }} S/R Backtest Report (W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, M:{{ params.min_bars }}, ATR:{{ params.atr_period }}, Wick:{{ params.wick }})</title>
         <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
         <style>
             body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
@@ -84,6 +87,7 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
                 width: 100%; 
                 height: 700px; 
                 margin-top: 10px; 
+                margin-bottom: 30px; 
                 background: white; 
                 border: 1px solid #ddd;
                 border-radius: 4px;
@@ -100,9 +104,9 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
     </head>
     <body>
         <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;">
-            <h1 style="margin: 0; font-size: 1.5em;">S/R Backtest Report</h1>
+            <h1 style="margin: 0; font-size: 1.5em;">{{ symbol }} S/R Backtest Report</h1>
             <div style="font-size: 0.9em; color: #666;">
-                <strong>Params:</strong> W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm*100 }}%, ATR:{{ params.atr_period }}, Wick:{{ params.wick*100 }}%
+                <strong>Params:</strong> W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, MinBars:{{ params.min_bars }}, ATR:{{ params.atr_period }}, Wick:{{ params.wick*100 }}%
                 | <strong>Generated:</strong> {{ now }}
             </div>
         </div>
@@ -179,18 +183,18 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
 
             // Add S/R zones as rectangles (using Baseline series for precise boxes)
             srResults.forEach(res => {
-                const color = res.result === 'support' ? 'rgba(38, 166, 154, 0.4)' : 'rgba(239, 83, 80, 0.4)';
+                const color = res.result === 'support' ? 'rgba(38, 166, 154, 0.3)' : 'rgba(239, 83, 80, 0.3)';
                 const borderColor = res.result === 'support' ? '#26a69a' : '#ef5350';
                 
                 const boxSeries = chart.addBaselineSeries({
                     baseValue: { type: 'price', price: res.price_range.low },
                     topFillColor1: color,
                     topFillColor2: color,
-                    topLineColor: borderColor,
+                    topLineColor: 'transparent',
                     bottomFillColor1: 'transparent',
                     bottomFillColor2: 'transparent',
                     bottomLineColor: 'transparent',
-                    lineWidth: 1,
+                    lineWidth: 0,
                     priceLineVisible: false,
                     lastValueVisible: false,
                     crosshairMarkerVisible: false,
@@ -234,6 +238,7 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
     html_content = template.render(
         results=results, 
         params=params, 
+        symbol=symbol,
         now=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         chart_data_json=json.dumps(chart_data),
         sr_results_json=json.dumps(results)
@@ -249,13 +254,16 @@ if __name__ == "__main__":
     import sys
     import argparse
     
+    # Load defaults from config file first
+    config = load_config()
+
     parser = argparse.ArgumentParser(description="Sliding Window Backtest for S/R Detection")
-    parser.add_argument("--window", type=int, default=200, help="Sliding window size")
-    parser.add_argument("--nbars", type=int, default=20, help="Lookback period for detection")
-    parser.add_argument("--threshold", type=float, default=0.3, help="ATR multiplier for range")
-    parser.add_argument("--confirm", type=float, default=0.5, help="Confirmation percentage (0.0 to 1.0)")
-    parser.add_argument("--atr_period", type=int, default=14, help="ATR window size")
-    parser.add_argument("--wick", type=float, default=0.4, help="Minimum wick percentage")
+    parser.add_argument("--window", type=int, default=config["window"], help="Sliding window size")
+    parser.add_argument("--nbars", type=int, default=config["nbars"], help="Lookback period for detection")
+    parser.add_argument("--threshold", type=float, default=config["threshold"], help="ATR multiplier for range")
+    parser.add_argument("--min_bars", type=int, default=config["min_bars"], help="Minimum bars touching level")
+    parser.add_argument("--atr_period", type=int, default=config["atr_period"], help="ATR window size")
+    parser.add_argument("--wick", type=float, default=config["wick"], help="Minimum wick percentage")
     parser.add_argument("--input", type=str, help="Path to OHLCV JSON file")
     
     args = parser.parse_args()
@@ -283,7 +291,7 @@ if __name__ == "__main__":
         window_size=args.window, 
         nbars=args.nbars, 
         threshold=args.threshold, 
-        confirm=args.confirm,
+        min_bars=args.min_bars,
         atr_period=args.atr_period,
         wick_percentage=args.wick
     )
