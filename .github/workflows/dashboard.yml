@@ -3,6 +3,9 @@ name: Hourly S/R Dashboard
 on:
   schedule:
     - cron: '1 * * * *'  # 1 minute past every hour
+  push:
+    branches:
+      - master           # Run every time code is pushed to master
   workflow_dispatch:      # Allow manual trigger
 
 jobs:
