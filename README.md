@@ -38,8 +38,8 @@ For any potential level (a bar's High or Low), a "Narrow Range" is defined:
 
 To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 7 bars) must satisfy **all** of the following:
 
-#### A. Cluster Density (Confirmation %)
-- At least **X%** (e.g., 70%) of the $N$ bars must have their High (for resistance) or Low (for support) fall within the narrow range.
+#### A. Cluster Density (Minimum Bars)
+- At least **M** bars (e.g., 5 bars) within the $N$-bar window must have their High (for resistance) or Low (for support) fall within the narrow range.
 
 #### B. Recency Requirement
 - The **latest bar** in the window must be one of the bars touching the range. This ensures the level is currently active.
@@ -85,11 +85,25 @@ Connects to Supabase using your `.env` configuration to download the latest mark
 
 ## ⚙️ Configurable Parameters
 
-| Parameter | CLI Flag | Default | Description |
-| :--- | :--- | :--- | :--- |
-| **N-Bars** | `--nbars` | 7 | The lookback window for detection. |
-| **Confirm %** | `--confirm` | 0.7 | % of bars required to touch the zone. |
-| **ATR Period** | `--atr_period` | 21 | Window for volatility calculation. |
-| **Threshold** | `--threshold` | 0.5 | Multiplier for ATR to set zone width. |
-| **Min Wick** | `--wick` | 0.1 | Min rejection wick size (as % of bar). |
-| **Window Size**| `--window` | 200 | Total bars shown in the sliding window. |
+The system uses a `config.json` file for persistent settings. Any parameter can also be overridden via command-line arguments.
+
+| Parameter | CLI Flag | config.json Key | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **N-Bars** | `--nbars` | `"nbars"` | 7 | The lookback window for detection. |
+| **Min Bars** | `--min_bars` | `"min_bars"` | 5 | Min bars required to touch the zone. |
+| **ATR Period** | `--atr_period` | `"atr_period"` | 21 | Window for volatility calculation. |
+| **Threshold** | `--threshold` | `"threshold"` | 0.5 | Multiplier for ATR to set zone width. |
+| **Min Wick** | `--wick` | `"wick"` | 0.1 | Min rejection wick size (as % of bar). |
+| **Window Size**| `--window` | `"window"` | 200 | Total bars shown in the sliding window. |
+
+### Example `config.json`:
+```json
+{
+    "nbars": 7,
+    "min_bars": 5,
+    "atr_period": 21,
+    "threshold": 0.5,
+    "wick": 0.1,
+    "window": 200
+}
+```

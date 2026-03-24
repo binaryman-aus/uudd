@@ -1,0 +1,8 @@
+{
+    "nbars": 6,
+    "min_bars": 4,
+    "atr_period": 200,
+    "threshold": 0.5,
+    "wick": 0.1,
+    "window": 200
+}

@@ -46,7 +46,7 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, min_bars=
         
         if sr_result['result'] != 'nil':
             # Add the last bar's time in the window as the detection timestamp
-            sr_result['detected_at'] = window_data[-1]['time'].isoformat()
+            sr_result['detected_at'] = window_data[-1]['time'].strftime("%Y-%m-%dT%H:%M:%SZ")
             results.append(sr_result)
 
     print(f"Backtest complete. Found {len(results)} detections.")
@@ -83,14 +83,15 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
             body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
             h1 { color: #333; }
             h2 { color: #555; font-size: 1.2em; }
-            #chart-container { 
-                width: 100%; 
-                height: 700px; 
-                margin-top: 10px; 
-                margin-bottom: 30px; 
-                background: white; 
+            #chart-container {
+                height: 700px;
+                position: relative;
+                margin-top: 10px;
+                margin-bottom: 50px;
                 border: 1px solid #ddd;
-                border-radius: 4px;
+                background: white;
+                box-sizing: border-box;
+                padding-bottom: 10px;
             }
             table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
             th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
@@ -155,8 +156,7 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
 
             const container = document.getElementById('chart-container');
             const chart = LightweightCharts.createChart(container, {
-                width: container.offsetWidth,
-                height: 700,
+                autoSize: true,
                 layout: {
                     background: { type: 'solid', color: 'white' },
                     textColor: '#333',
@@ -168,6 +168,15 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
                 timeScale: {
                     timeVisible: true,
                     secondsVisible: false,
+                    borderVisible: false,
+                },
+                rightPriceScale: {
+                    autoScale: true,
+                    borderVisible: false,
+                    scaleMargins: {
+                        top: 0.1,
+                        bottom: 0.1,
+                    },
                 },
             });
 
@@ -198,10 +207,11 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
                     priceLineVisible: false,
                     lastValueVisible: false,
                     crosshairMarkerVisible: false,
+                    autoscaleInfoProvider: () => null,
                 });
 
-                const startTime = Math.floor(new Date(res.start_time).getTime() / 1000);
-                const endTime = Math.floor(new Date(res.end_time).getTime() / 1000);
+                const startTime = typeof res.start_time === 'number' ? res.start_time : Math.floor(new Date(res.start_time).getTime() / 1000);
+                const endTime = typeof res.end_time === 'number' ? res.end_time : Math.floor(new Date(res.end_time).getTime() / 1000);
 
                 // Add data points at every bar in the range
                 const boxData = chartData
@@ -214,16 +224,8 @@ def generate_html_report(results, params, full_ohlcv, output_file="backtest_repo
                 boxSeries.setData(boxData);
             });
 
-            // Handle responsive resizing
-            window.addEventListener('resize', () => {
-                chart.applyOptions({
-                    width: container.offsetWidth,
-                    height: 700
-                });
-            });
-
             function zoomTo(dateStr) {
-                const timestamp = Math.floor(new Date(dateStr).getTime() / 1000);
+                const timestamp = typeof dateStr === 'number' ? dateStr : Math.floor(new Date(dateStr).getTime() / 1000);
                 chart.timeScale().setVisibleRange({
                     from: timestamp - (24 * 3600 * 2), // 2 days before
                     to: timestamp + (24 * 3600 * 2),   // 2 days after

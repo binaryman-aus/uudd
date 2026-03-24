@@ -15,14 +15,14 @@ def calculate_atr(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(window=period).mean()
 
-def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.5, atr_period=14, wick_percentage=0.4, debug=False):
+def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_period=14, wick_percentage=0.4, debug=False):
     """
     Detects Support and Resistance levels based on Kevin Yu's theory.
     
     ohlcv_data: List of dicts (already sorted by time ascending)
     n_bars: Lookback period for detection
     threshold_factor: Multiplier for ATR to define 'narrow range'
-    confirm_percentage: Percentage of highs/lows that must fall within the range
+    min_bars: Minimum number of bars that must fall within the range
     atr_period: Period for ATR calculation
     wick_percentage: Minimum wick size as percentage of total bar range for bars touching the level
     debug: If True, returns detailed calculation data
@@ -56,7 +56,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         "current_atr": float(current_atr),
         "y_range": float(y_range),
         "n_bars": n_bars,
-        "confirm_threshold": n_bars * confirm_percentage,
+        "min_bars": min_bars,
         "bars": []
     }
     
@@ -73,7 +73,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
             lower_wick = body_bottom - bar['low']
             
             debug_info['bars'].append({
-                "time": bar['time'].isoformat(),
+                "time": bar['time'].strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "high": float(bar['high']),
                 "low": float(bar['low']),
                 "open": float(bar['open']),
@@ -117,7 +117,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
             wick_met_count = (upper_wicks / total_ranges >= wick_percentage).sum()
             wick_valid = (wick_met_count >= len(in_range_bars) * 0.5)
         
-        if count >= n_bars * confirm_percentage and not invalid and last_in_range and wick_valid and miss_count <= 1:
+        if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
             if count > max_high_count:
                 in_range_times = recent_df[in_range_mask]['time']
                 max_high_count = count
@@ -127,8 +127,8 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
-                    "start_time": in_range_times.iloc[0].isoformat(),
-                    "end_time": in_range_times.iloc[-1].isoformat(),
+                    "start_time": in_range_times.iloc[0].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "end_time": in_range_times.iloc[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "wick_valid": bool(wick_valid),
                     "invalid_close": bool(invalid),
                     "last_in_range": bool(last_in_range)
@@ -167,7 +167,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
             wick_met_count = (lower_wicks / total_ranges >= wick_percentage).sum()
             wick_valid = (wick_met_count >= len(in_range_bars) * 0.5)
         
-        if count >= n_bars * confirm_percentage and not invalid and last_in_range and wick_valid and miss_count <= 1:
+        if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
             if count > max_low_count:
                 in_range_times = recent_df[in_range_mask]['time']
                 max_low_count = count
@@ -177,8 +177,8 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
-                    "start_time": in_range_times.iloc[0].isoformat(),
-                    "end_time": in_range_times.iloc[-1].isoformat(),
+                    "start_time": in_range_times.iloc[0].strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    "end_time": in_range_times.iloc[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "wick_valid": bool(wick_valid),
                     "invalid_close": bool(invalid),
                     "last_in_range": bool(last_in_range)
@@ -226,7 +226,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         if sr_found['range_low'] <= price_val <= sr_found['range_high']:
             sr_found['prev_matches'].append({
                 "type": f"prev_{match_type}_match",
-                "datetime": history_df['time'].iloc[i].isoformat(),
+                "datetime": history_df['time'].iloc[i].strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "price": float(price_val)
             })
     same_type = 'high' if sr_found['type'] == 'resistance' else 'low'
@@ -235,7 +235,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         if sr_found['range_low'] <= price_val <= sr_found['range_high']:
             sr_found['prev_matches'].append({
                 "type": f"prev_{same_type}_match",
-                "datetime": history_df['time'].iloc[i].isoformat(),
+                "datetime": history_df['time'].iloc[i].strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "price": float(price_val)
             })
     sr_found['prev_matches'] = sr_found['prev_matches'][-5:] 
@@ -257,17 +257,41 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
             
     return final_result
 
+def load_config(config_file="config.json"):
+    """
+    Loads configuration from a JSON file.
+    """
+    defaults = {
+        "nbars": 7,
+        "min_bars": 5,
+        "atr_period": 21,
+        "threshold": 0.5,
+        "wick": 0.1,
+    }
+    if os.path.exists(config_file):
+        try:
+            with open(config_file, "r") as f:
+                config = json.load(f)
+            defaults.update(config)
+        except Exception as e:
+            import sys
+            print(f"Warning: Could not load config file: {e}", file=sys.stderr)
+    return defaults
+
 if __name__ == "__main__":
     import sys
     import argparse
     
+    # Load defaults from config file first
+    config = load_config()
+
     parser = argparse.ArgumentParser(description="Support and Resistance Detection")
     parser.add_argument("input_file", nargs="?", help="Path to OHLCV JSON file")
-    parser.add_argument("--nbars", type=int, default=20, help="Lookback period for detection")
-    parser.add_argument("--threshold", type=float, default=0.3, help="ATR multiplier for range")
-    parser.add_argument("--confirm", type=float, default=0.5, help="Confirmation percentage (0.0 to 1.0)")
-    parser.add_argument("--atr_period", type=int, default=14, help="ATR period")
-    parser.add_argument("--wick", type=float, default=0.4, help="Minimum wick percentage")
+    parser.add_argument("--nbars", type=int, default=config["nbars"], help="Lookback period for detection")
+    parser.add_argument("--threshold", type=float, default=config["threshold"], help="ATR multiplier for range")
+    parser.add_argument("--min_bars", type=int, default=config["min_bars"], help="Minimum bars touching level")
+    parser.add_argument("--atr_period", type=int, default=config["atr_period"], help="ATR period")
+    parser.add_argument("--wick", type=float, default=config["wick"], help="Minimum wick percentage")
     parser.add_argument("--debug_time", type=str, help="Datetime for debug mode (ISO format)")
     
     args = parser.parse_args()
@@ -316,7 +340,7 @@ if __name__ == "__main__":
                 debug_ohlcv, 
                 n_bars=args.nbars, 
                 threshold_factor=args.threshold, 
-                confirm_percentage=args.confirm,
+                min_bars=args.min_bars,
                 atr_period=args.atr_period,
                 wick_percentage=args.wick,
                 debug=True
@@ -327,7 +351,7 @@ if __name__ == "__main__":
                 ohlcv_data, 
                 n_bars=args.nbars, 
                 threshold_factor=args.threshold, 
-                confirm_percentage=args.confirm,
+                min_bars=args.min_bars,
                 atr_period=args.atr_period,
                 wick_percentage=args.wick
             )
