@@ -1,4 +1,6 @@
 import os
+import json
+from datetime import datetime
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -11,6 +13,26 @@ def get_supabase_client() -> Client:
     if not url or not key:
         raise ValueError("SUPABASE_URL or SUPABASE_KEY not found in environment variables")
     return create_client(url, key)
+
+def save_to_data_folder(data, symbol, timeframe):
+    """
+    Saves the fetched data to the 'data' folder as a JSON file.
+    """
+    if not os.path.exists("data"):
+        os.makedirs("data")
+    
+    # Clean symbol for filename (replace '/' with '_')
+    safe_symbol = symbol.replace("/", "_")
+    filename = f"data/{safe_symbol}_{timeframe}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    
+    try:
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=4)
+        print(f"Data saved to {filename}")
+        return filename
+    except Exception as e:
+        print(f"Error saving data: {e}")
+        return None
 
 def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
     """
@@ -42,6 +64,7 @@ if __name__ == "__main__":
     
     if data:
         print(f"Successfully fetched {len(data)} records for {symbol} ({timeframe}):")
+        save_to_data_folder(data, symbol, timeframe)
         for record in data[:5]:
             print(record)
     else:
