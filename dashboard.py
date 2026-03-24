@@ -110,9 +110,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             const symbols = {{ symbols_json }};
 
             // Update Dashboard Generated Time
-            const genDate = new Date();
-            document.getElementById('dashboard-generated').innerHTML =
-                `Generated: <span style="font-weight: normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
+            const genTime = {{ gen_timestamp }};
+            if (genTime > 0) {
+                const genDate = new Date(genTime * 1000);
+                document.getElementById('dashboard-generated').innerHTML =
+                    `Generated: <span style="font-weight: normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
+            }
 
             symbols.forEach((symbol, index) => {
                 const containerId = `chart-${index + 1}`;
@@ -248,6 +251,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         symbols=SYMBOLS,
         results=formatted_all_results,
         now=now_str,
+        gen_timestamp=int(datetime.now().timestamp()),
         all_data_json=json.dumps(formatted_all_data),
         all_results_json=json.dumps(formatted_all_results),
         symbols_json=json.dumps(SYMBOLS)
