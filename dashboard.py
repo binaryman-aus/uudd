@@ -89,7 +89,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             {% for symbol in symbols %}
             <div class="chart-box">
                 <div class="chart-header">
-                    <span>{{ symbol }}</span>
+                    <span id="title-{{ symbol }}">{{ symbol }}</span>
                     {% if results[symbol] and results[symbol].results %}
                         {% set latest = results[symbol].results[-1] %}
                         <span class="sr-label {{ latest.result }}">
@@ -114,8 +114,18 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const container = document.getElementById(containerId);
                 const chartData = allData[symbol] || [];
                 const srResults = (allResults[symbol] && allResults[symbol].results) || [];
+                const lastBarTime = (allResults[symbol] && allResults[symbol].last_bar_time) || 0;
 
                 if (chartData.length === 0) return;
+
+                // Update Title with Time
+                if (lastBarTime > 0) {
+                    const date = new Date(lastBarTime * 1000);
+                    const utcStr = date.toUTCString().replace(' GMT', '');
+                    const localStr = date.toLocaleString();
+                    document.getElementById(`title-${symbol}`).innerHTML =
+                        `${symbol} | <span style="font-weight: normal; font-size: 0.85em; color: #666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
+                }
 
                 const chart = LightweightCharts.createChart(container, {
                     autoSize: true,
@@ -224,7 +234,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             })
         chart_data.sort(key=lambda x: x['time'])
         formatted_all_data[symbol] = chart_data
-        formatted_all_results[symbol] = {"results": symbol_results}
+        formatted_all_results[symbol] = {
+            "results": symbol_results,
+            "last_bar_time": chart_data[-1]['time'] if chart_data else 0
+        }
         
     html_content = template.render(
         symbols=SYMBOLS,
