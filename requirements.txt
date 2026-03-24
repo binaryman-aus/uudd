@@ -1,0 +1,6 @@
+pandas
+numpy
+requests
+jinja2
+python-dotenv
+supabase
