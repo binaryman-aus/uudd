@@ -6,17 +6,27 @@ A Python-based system for detecting, backtesting, and visualizing Support and Re
 
 1. **Install Dependencies**:
    ```bash
-   pip install supabase python-dotenv pandas jinja2
+   pip install -r requirements.txt
    ```
 
-2. **Fetch Data**:
-   ```bash
-   python fetch_ohlcv.py --symbol USOIL --timeframe H1
+2. **Setup Environment**:
+   Create a `.env` file with your Supabase and Telegram credentials:
+   ```env
+   SUPABASE_URL=your_url
+   SUPABASE_KEY=your_key
+   TELEGRAM_TOKEN=your_bot_token
+   TELEGRAM_CHAT_ID=your_chat_id
    ```
 
-3. **Run Backtest**:
+3. **Run Multi-Symbol Dashboard**:
    ```bash
-   python backtest.py --nbars 7 --confirm 0.7 --atr_period 21 --threshold 0.5 --wick 0.1
+   python dashboard.py
+   ```
+   Generates a 3x3 grid of the latest S/R levels for 9 symbols and sends a consolidated Telegram alert.
+
+4. **Run Single Backtest**:
+   ```bash
+   python backtest.py --symbol USOIL --timeframe H1
    ```
    Open `backtest_report.html` to view the interactive TradingView chart.
 
@@ -27,7 +37,7 @@ A Python-based system for detecting, backtesting, and visualizing Support and Re
 The detection logic in `sr_detect.py` uses a multi-step approach to identify high-conviction price consolidation zones.
 
 ### 1. Volatility Baseline (ATR)
-The system calculates the **Average True Range (ATR)** over a configurable period (default: 21 bars). This ATR serves as the baseline for measuring "closeness" to a price level, ensuring the detection is relative to current market volatility.
+The system calculates the **Average True Range (ATR)** over a configurable period (default: 200 bars). This ATR serves as the baseline for measuring "closeness" to a price level, ensuring the detection is relative to current market volatility.
 
 ### 2. Narrow Price Range (The Zone)
 For any potential level (a bar's High or Low), a "Narrow Range" is defined:
@@ -36,10 +46,10 @@ For any potential level (a bar's High or Low), a "Narrow Range" is defined:
 
 ### 3. Core Constraints (The Rules)
 
-To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 7 bars) must satisfy **all** of the following:
+To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 6 bars) must satisfy **all** of the following:
 
 #### A. Cluster Density (Minimum Bars)
-- At least **M** bars (e.g., 5 bars) within the $N$-bar window must have their High (for resistance) or Low (for support) fall within the narrow range.
+- At least **M** bars (e.g., 4 bars) within the $N$-bar window must have their High (for resistance) or Low (for support) fall within the narrow range.
 
 #### B. Recency Requirement
 - The **latest bar** in the window must be one of the bars touching the range. This ensures the level is currently active.
@@ -64,22 +74,32 @@ To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 7 bars) must sa
 
 ## 🛠️ Toolset
 
+### `dashboard.py` (The Pipeline)
+Automatically processes 9 major symbols (US500, GER40, JP225, USOIL, XAUUSD, BTCUSD, AUDUSD, EURUSD, USDJPY) and builds a **3x3 Dashboard**.
+- **Consolidated Alerts**: Sends a single Telegram message summarizing all active S/R levels.
+- **Single-Screen View**: Optimized HTML layout ([`dashboard.html`](dashboard.html)) that fits 9 interactive charts without scrolling.
+
 ### `sr_detect.py` (The Engine)
 Identifies S/R levels. Includes a powerful **Debug Mode**:
 ```bash
-python sr_detect.py --debug_time "2026-03-24T04:00:00+00:00" [other params]
+python sr_detect.py --debug_time "2026-03-24T04:00:00Z" [other params]
 ```
-Returns a detailed JSON object showing exactly why a specific timestamp passed or failed each rule (Wick %, Close validity, Miss count, etc.).
+Returns a detailed JSON object showing exactly why a specific timestamp passed or failed each rule.
 
 ### `backtest.py` (The Simulator)
-Uses a sliding window to run the detection engine across your entire historical dataset and generates a responsive HTML report.
-- **Interactive Visuals**: Uses TradingView Lightweight Charts.
-- **Rectangle Mapping**: S/R zones are drawn as solid boxes from the start bar to the end bar.
-- **Navigation**: Click any row in the table to zoom the chart to that detection.
+Runs the detection engine across historical data and generates a responsive HTML report with TradingView Lightweight Charts.
 
 ### `fetch_ohlcv.py` (The Data Link)
-Connects to Supabase using your `.env` configuration to download the latest market data.
-- Supports custom symbols (`--symbol`) and limits (`--limit`).
+Connects to Supabase to download the latest market data.
+
+---
+
+## 🤖 Automation (GitHub Actions)
+
+The system is configured to run automatically using GitHub Actions:
+- **Schedule**: Every hour at the 1-minute mark (`1 * * * *`).
+- **Deployment**: Automatically pushes the updated dashboard to **GitHub Pages**.
+- **Secrets**: Securely uses `SUPABASE_URL`, `SUPABASE_KEY`, `TELEGRAM_TOKEN`, and `TELEGRAM_CHAT_ID` stored in repository settings.
 
 ---
 
@@ -89,19 +109,19 @@ The system uses a `config.json` file for persistent settings. Any parameter can 
 
 | Parameter | CLI Flag | config.json Key | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **N-Bars** | `--nbars` | `"nbars"` | 7 | The lookback window for detection. |
-| **Min Bars** | `--min_bars` | `"min_bars"` | 5 | Min bars required to touch the zone. |
-| **ATR Period** | `--atr_period` | `"atr_period"` | 21 | Window for volatility calculation. |
+| **N-Bars** | `--nbars` | `"nbars"` | 6 | The lookback window for detection. |
+| **Min Bars** | `--min_bars` | `"min_bars"` | 4 | Min bars required to touch the zone. |
+| **ATR Period** | `--atr_period` | `"atr_period"` | 200 | Window for volatility calculation. |
 | **Threshold** | `--threshold` | `"threshold"` | 0.5 | Multiplier for ATR to set zone width. |
 | **Min Wick** | `--wick` | `"wick"` | 0.1 | Min rejection wick size (as % of bar). |
 | **Window Size**| `--window` | `"window"` | 200 | Total bars shown in the sliding window. |
 
-### Example `config.json`:
+### Current `config.json`:
 ```json
 {
-    "nbars": 7,
-    "min_bars": 5,
-    "atr_period": 21,
+    "nbars": 6,
+    "min_bars": 4,
+    "atr_period": 200,
     "threshold": 0.5,
     "wick": 0.1,
     "window": 200
