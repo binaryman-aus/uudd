@@ -5,7 +5,7 @@ from sr_detect import detect_sr
 from jinja2 import Template
 from datetime import datetime
 
-def run_backtest(input_file, window_size=200):
+def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0.5):
     """
     Runs a sliding window backtest on OHLCV data.
     """
@@ -28,14 +28,19 @@ def run_backtest(input_file, window_size=200):
 
     results = []
     print(f"Running backtest on {total_bars} bars with window size {window_size}...")
+    print(f"S/R Params: nbars={nbars}, threshold={threshold}, confirm={confirm}")
 
     # Sliding window
     for i in range(total_bars - window_size + 1):
         window_data = df.iloc[i : i + window_size].to_dict('records')
         
-        # Call detection logic
-        # We can pass parameters here if needed
-        sr_result = detect_sr(window_data)
+        # Call detection logic with custom parameters
+        sr_result = detect_sr(
+            window_data, 
+            n_bars=nbars, 
+            threshold_factor=threshold, 
+            confirm_percentage=confirm
+        )
         
         if sr_result['result'] != 'nil':
             # Add the last bar's time in the window as the detection timestamp
@@ -116,21 +121,38 @@ def generate_html_report(results, output_file="backtest_report.html"):
 
 if __name__ == "__main__":
     import sys
+    import argparse
     
-    # Use the latest file in data folder by default
-    input_file = None
-    if os.path.exists("data"):
-        files = [f for f in os.listdir("data") if f.endswith(".json")]
-        if files:
-            # Sort by modification time to get the latest
-            files.sort(key=lambda x: os.path.getmtime(os.path.join("data", x)), reverse=True)
-            input_file = os.path.join("data", files[0])
+    parser = argparse.ArgumentParser(description="Sliding Window Backtest for S/R Detection")
+    parser.add_argument("--window", type=int, default=200, help="Sliding window size")
+    parser.add_argument("--nbars", type=int, default=20, help="Lookback period for detection")
+    parser.add_argument("--threshold", type=float, default=0.3, help="ATR multiplier for range")
+    parser.add_argument("--confirm", type=float, default=0.5, help="Confirmation percentage (0.0 to 1.0)")
+    parser.add_argument("--input", type=str, help="Path to OHLCV JSON file")
+    
+    args = parser.parse_args()
+    
+    # Use the latest file in data folder by default if --input not provided
+    input_file = args.input
+    if not input_file:
+        if os.path.exists("data"):
+            files = [f for f in os.listdir("data") if f.endswith(".json")]
+            if files:
+                # Sort by modification time to get the latest
+                files.sort(key=lambda x: os.path.getmtime(os.path.join("data", x)), reverse=True)
+                input_file = os.path.join("data", files[0])
             
     if not input_file:
         print("No data files found in 'data/' folder.")
         sys.exit(1)
         
-    backtest_results = run_backtest(input_file)
+    backtest_results = run_backtest(
+        input_file, 
+        window_size=args.window, 
+        nbars=args.nbars, 
+        threshold=args.threshold, 
+        confirm=args.confirm
+    )
     if backtest_results:
         generate_html_report(backtest_results)
     else:
