@@ -63,7 +63,10 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         # Count highs in range
         count = ((recent_df['high'] >= range_low) & (recent_df['high'] <= range_high)).sum()
         
-        if count >= n_bars * confirm_percentage:
+        # Validation: No bar between start and end should close ABOVE range_high
+        invalid = (recent_df['close'] > range_high).any()
+        
+        if count >= n_bars * confirm_percentage and not invalid:
             if count > max_high_count:
                 max_high_count = count
                 best_resistance = {
@@ -88,7 +91,10 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         # Count lows in range
         count = ((recent_df['low'] >= range_low) & (recent_df['low'] <= range_high)).sum()
         
-        if count >= n_bars * confirm_percentage:
+        # Validation: No bar between start and end should close BELOW range_low
+        invalid = (recent_df['close'] < range_low).any()
+        
+        if count >= n_bars * confirm_percentage and not invalid:
             if count > max_low_count:
                 max_low_count = count
                 best_support = {
