@@ -2,7 +2,7 @@ name: Hourly S/R Dashboard
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '5 * * * *'  # 5 minutes past every hour
   workflow_dispatch:      # Allow manual trigger
 
 jobs:
