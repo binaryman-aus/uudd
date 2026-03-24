@@ -83,7 +83,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
     <body>
         <div class="dashboard-header">
             <div><strong>S/R Multi-Symbol Dashboard</strong> | H1 Timeframe | Last 500 Bars</div>
-            <div>Generated: {{ now }}</div>
+            <div id="dashboard-generated">Generated: {{ now }}</div>
         </div>
         <div class="grid-container">
             {% for symbol in symbols %}
@@ -108,6 +108,11 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             const allData = {{ all_data_json }};
             const allResults = {{ all_results_json }};
             const symbols = {{ symbols_json }};
+
+            // Update Dashboard Generated Time
+            const genDate = new Date();
+            document.getElementById('dashboard-generated').innerHTML =
+                `Generated: <span style="font-weight: normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
 
             symbols.forEach((symbol, index) => {
                 const containerId = `chart-${index + 1}`;
