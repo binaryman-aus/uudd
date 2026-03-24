@@ -1,5 +1,6 @@
 .env
 data/
+*.html
 __pycache__/
 *.pyc
 .venv/
