@@ -34,7 +34,7 @@ def save_to_data_folder(data, symbol, timeframe):
         print(f"Error saving data: {e}")
         return None
 
-def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
+def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 1000):
     """
     Fetches OHLCV data from the 'ohlcv' table in Supabase.
     """
@@ -55,17 +55,22 @@ def fetch_ohlcv(symbol: str, timeframe: str, limit: int = 100):
         return None
 
 if __name__ == "__main__":
-    # Example usage:
-    # Change 'US500' and 'H1' to your actual symbol and timeframe
-    symbol = "US500"
-    timeframe = "H1"
+    import sys
+    import argparse
     
-    data = fetch_ohlcv(symbol, timeframe)
+    parser = argparse.ArgumentParser(description="Fetch OHLCV data from Supabase")
+    parser.add_argument("--symbol", type=str, default="US500", help="Trading symbol")
+    parser.add_argument("--timeframe", type=str, default="H1", help="Timeframe (e.g., H1, D1)")
+    parser.add_argument("--limit", type=int, default=1000, help="Number of bars to fetch")
+    
+    args = parser.parse_args()
+    
+    data = fetch_ohlcv(args.symbol, args.timeframe, limit=args.limit)
     
     if data:
-        print(f"Successfully fetched {len(data)} records for {symbol} ({timeframe}):")
-        save_to_data_folder(data, symbol, timeframe)
+        print(f"Successfully fetched {len(data)} records for {args.symbol} ({args.timeframe}):")
+        filename = save_to_data_folder(data, args.symbol, args.timeframe)
         for record in data[:5]:
             print(record)
     else:
-        print(f"No data found for {symbol} ({timeframe}) or an error occurred.")
+        print(f"No data found for {args.symbol} ({args.timeframe}) or an error occurred.")
