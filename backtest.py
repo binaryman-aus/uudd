@@ -5,7 +5,7 @@ from sr_detect import detect_sr
 from jinja2 import Template
 from datetime import datetime
 
-def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0.5):
+def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0.5, atr_period=14, wick_percentage=0.4):
     """
     Runs a sliding window backtest on OHLCV data.
     """
@@ -28,7 +28,7 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0
 
     results = []
     print(f"Running backtest on {total_bars} bars with window size {window_size}...")
-    print(f"S/R Params: nbars={nbars}, threshold={threshold}, confirm={confirm}")
+    print(f"S/R Params: nbars={nbars}, threshold={threshold}, confirm={confirm}, atr_period={atr_period}, wick={wick_percentage}")
 
     # Sliding window
     for i in range(total_bars - window_size + 1):
@@ -39,7 +39,9 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, confirm=0
             window_data, 
             n_bars=nbars, 
             threshold_factor=threshold, 
-            confirm_percentage=confirm
+            confirm_percentage=confirm,
+            atr_period=atr_period,
+            wick_percentage=wick_percentage
         )
         
         if sr_result['result'] != 'nil':
@@ -58,7 +60,7 @@ def generate_html_report(results, params, output_file="backtest_report.html"):
     <!DOCTYPE html>
     <html>
     <head>
-        <title>S/R Detection Backtest Report (W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm }})</title>
+        <title>S/R Detection Backtest Report (W:{{ params.window }}, N:{{ params.nbars }}, T:{{ params.threshold }}, C:{{ params.confirm }}, ATR:{{ params.atr_period }}, Wick:{{ params.wick }})</title>
         <style>
             body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; }
             h1 { color: #333; }
@@ -75,7 +77,7 @@ def generate_html_report(results, params, output_file="backtest_report.html"):
     </head>
     <body>
         <h1>S/R Detection Backtest Report</h1>
-        <h2>Parameters: Window Size: {{ params.window }}, N-Bars: {{ params.nbars }}, ATR Threshold: {{ params.threshold }}, Confirmation: {{ params.confirm*100 }}%</h2>
+        <h2>Parameters: Window Size: {{ params.window }}, N-Bars: {{ params.nbars }}, ATR Threshold: {{ params.threshold }}, Confirmation: {{ params.confirm*100 }}%, ATR Period: {{ params.atr_period }}, Min Wick: {{ params.wick*100 }}%</h2>
         <p>Generated at: {{ now }}</p>
         <table>
             <thead>
@@ -134,6 +136,8 @@ if __name__ == "__main__":
     parser.add_argument("--nbars", type=int, default=20, help="Lookback period for detection")
     parser.add_argument("--threshold", type=float, default=0.3, help="ATR multiplier for range")
     parser.add_argument("--confirm", type=float, default=0.5, help="Confirmation percentage (0.0 to 1.0)")
+    parser.add_argument("--atr_period", type=int, default=14, help="ATR window size")
+    parser.add_argument("--wick", type=float, default=0.4, help="Minimum wick percentage")
     parser.add_argument("--input", type=str, help="Path to OHLCV JSON file")
     
     args = parser.parse_args()
@@ -157,7 +161,9 @@ if __name__ == "__main__":
         window_size=args.window, 
         nbars=args.nbars, 
         threshold=args.threshold, 
-        confirm=args.confirm
+        confirm=args.confirm,
+        atr_period=args.atr_period,
+        wick_percentage=args.wick
     )
     if backtest_results:
         # Pass all args to report generator

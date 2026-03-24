@@ -15,7 +15,7 @@ def calculate_atr(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(window=period).mean()
 
-def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.5):
+def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.5, atr_period=14, wick_percentage=0.4):
     """
     Detects Support and Resistance levels based on Kevin Yu's theory.
     
@@ -23,8 +23,10 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
     n_bars: Lookback period for detection
     threshold_factor: Multiplier for ATR to define 'narrow range'
     confirm_percentage: Percentage of highs/lows that must fall within the range
+    atr_period: Period for ATR calculation
+    wick_percentage: Minimum wick size as percentage of total bar range for bars touching the level
     """
-    if not ohlcv_data or len(ohlcv_data) < max(n_bars, 14):
+    if not ohlcv_data or len(ohlcv_data) < max(n_bars, atr_period):
         return {"result": "nil", "reason": "Insufficient data"}
 
     df = pd.DataFrame(ohlcv_data)
@@ -37,7 +39,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
     df['time'] = pd.to_datetime(df['time'])
     df = df.sort_values('time').reset_index(drop=True)
     
-    df['atr'] = calculate_atr(df)
+    df['atr'] = calculate_atr(df, period=atr_period)
     
     # Use the most recent ATR for range definition
     current_atr = df['atr'].iloc[-1]
@@ -61,7 +63,8 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         range_high = level + y_range
         
         # Count highs in range
-        count = ((recent_df['high'] >= range_low) & (recent_df['high'] <= range_high)).sum()
+        in_range_mask = (recent_df['high'] >= range_low) & (recent_df['high'] <= range_high)
+        count = in_range_mask.sum()
         
         # Validation: No bar between start and end should close ABOVE range_high
         invalid = (recent_df['close'] > range_high).any()
@@ -70,7 +73,15 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         last_high = recent_df['high'].iloc[-1]
         last_in_range = (last_high >= range_low) and (last_high <= range_high)
         
-        if count >= n_bars * confirm_percentage and not invalid and last_in_range:
+        # Rejection Wick Validation for Resistance (Upper Wicks)
+        wick_valid = True
+        if count > 0:
+            in_range_bars = recent_df[in_range_mask]
+            upper_wicks = (in_range_bars['high'] - in_range_bars[['open', 'close']].max(axis=1))
+            total_ranges = (in_range_bars['high'] - in_range_bars['low']).replace(0, 0.0001)
+            wick_valid = (upper_wicks / total_ranges >= wick_percentage).all()
+        
+        if count >= n_bars * confirm_percentage and not invalid and last_in_range and wick_valid:
             if count > max_high_count:
                 max_high_count = count
                 best_resistance = {
@@ -93,7 +104,8 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         range_high = level + y_range
         
         # Count lows in range
-        count = ((recent_df['low'] >= range_low) & (recent_df['low'] <= range_high)).sum()
+        in_range_mask = (recent_df['low'] >= range_low) & (recent_df['low'] <= range_high)
+        count = in_range_mask.sum()
         
         # Validation: No bar between start and end should close BELOW range_low
         invalid = (recent_df['close'] < range_low).any()
@@ -102,7 +114,15 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, confirm_percentage=0.
         last_low = recent_df['low'].iloc[-1]
         last_in_range = (last_low >= range_low) and (last_low <= range_high)
         
-        if count >= n_bars * confirm_percentage and not invalid and last_in_range:
+        # Rejection Wick Validation for Support (Lower Wicks)
+        wick_valid = True
+        if count > 0:
+            in_range_bars = recent_df[in_range_mask]
+            lower_wicks = (in_range_bars[['open', 'close']].min(axis=1) - in_range_bars['low'])
+            total_ranges = (in_range_bars['high'] - in_range_bars['low']).replace(0, 0.0001)
+            wick_valid = (lower_wicks / total_ranges >= wick_percentage).all()
+        
+        if count >= n_bars * confirm_percentage and not invalid and last_in_range and wick_valid:
             if count > max_low_count:
                 max_low_count = count
                 best_support = {
@@ -199,6 +219,8 @@ if __name__ == "__main__":
     parser.add_argument("--nbars", type=int, default=20, help="Lookback period for detection")
     parser.add_argument("--threshold", type=float, default=0.3, help="ATR multiplier for range")
     parser.add_argument("--confirm", type=float, default=0.5, help="Confirmation percentage (0.0 to 1.0)")
+    parser.add_argument("--atr_period", type=int, default=14, help="ATR period")
+    parser.add_argument("--wick", type=float, default=0.4, help="Minimum wick percentage")
     
     args = parser.parse_args()
     
@@ -223,7 +245,9 @@ if __name__ == "__main__":
             ohlcv_data, 
             n_bars=args.nbars, 
             threshold_factor=args.threshold, 
-            confirm_percentage=args.confirm
+            confirm_percentage=args.confirm,
+            atr_period=args.atr_period,
+            wick_percentage=args.wick
         )
         print(json.dumps(result, indent=4))
         
