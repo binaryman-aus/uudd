@@ -207,8 +207,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     if (boxData.length > 0) boxSeries.setData(boxData);
                 });
 
-                const len = chartData.length;
-                chart.timeScale().setVisibleLogicalRange({ from: len - visibleBars, to: len - 1 });
+                const lastTime  = chartData[chartData.length - 1].time;
+                const startTime = chartData[Math.max(0, chartData.length - visibleBars)].time;
+                chart.timeScale().setVisibleRange({ from: startTime, to: lastTime });
                 return chart;
             }
 
