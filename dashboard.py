@@ -209,7 +209,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 const lastTime  = chartData[chartData.length - 1].time;
                 const startTime = chartData[Math.max(0, chartData.length - visibleBars)].time;
-                chart.timeScale().setVisibleRange({ from: startTime, to: lastTime });
+                requestAnimationFrame(() => {
+                    chart.timeScale().setVisibleRange({ from: startTime, to: lastTime });
+                });
                 return chart;
             }
 
