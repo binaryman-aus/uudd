@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import pandas as pd
@@ -6,6 +7,8 @@ from jinja2 import Template
 import requests
 from fetch_ohlcv import fetch_ohlcv
 from sr_detect import detect_sr, load_config
+
+CACHE_FILE = "data/pipeline_cache.json"
 
 SYMBOLS = ["US500", "GER40", "JP225", "USOIL", "XAUUSD", "BTCUSD", "AUDUSD", "EURUSD", "USDJPY"]
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8705770562:AAG59xiUaxmKfluuvSxIfdhRY7mmLF85IGo")
@@ -55,8 +58,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 padding: 5px;
                 box-sizing: border-box;
             }
-            /* Mobile Responsiveness */
-            @media (max-width: 768px) {
+            /* Phone-only layout: touch input + no hover = phone browser */
+            @media (pointer: coarse) and (hover: none) {
                 html, body {
                     overflow: auto;
                 }
@@ -78,16 +81,6 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
-                transition: all 0.2s ease-in-out;
-            }
-            .chart-box.fullscreen {
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                z-index: 9999 !important;
-                border: none !important;
             }
             .chart-header {
                 background: #eee;
@@ -115,13 +108,13 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
     </head>
     <body>
         <div class="dashboard-header">
-            <div><strong>S/R Multi-Symbol Dashboard</strong> | H1 Timeframe | Last 500 Bars</div>
+            <div><strong>S/R Multi-Symbol Dashboard</strong> | H1 Timeframe | Last 150 Bars</div>
             <div id="dashboard-generated">Generated: {{ now }}</div>
         </div>
         <div class="grid-container">
             {% for symbol in symbols %}
             <div id="box-{{ loop.index }}" class="chart-box">
-                <div class="chart-header" onclick="toggleFullscreen('{{ symbol }}', 'box-{{ loop.index }}')">
+                <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
                     <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
                     {% if results[symbol] and results[symbol].results %}
                         {% set latest = results[symbol].results[-1] %}
@@ -137,151 +130,128 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             {% endfor %}
         </div>
 
+        <!-- Fullscreen overlay: fresh chart instance so grid charts are never resized/corrupted -->
+        <div id="fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:white;flex-direction:column;">
+            <div id="fs-header" style="background:#eee;padding:4px 12px;font-size:0.85em;font-weight:bold;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer;" onclick="closeFullscreen()">
+                <span id="fs-title"></span>
+                <span style="font-size:1.1em;padding:2px 8px;background:#ccc;border-radius:3px;">&#x2715; Close</span>
+            </div>
+            <div id="fs-chart-container" style="flex:1;position:relative;min-height:0;"></div>
+        </div>
+
         <script>
             const allData = {{ all_data_json }};
             const allResults = {{ all_results_json }};
             const symbols = {{ symbols_json }};
 
-            // Update Dashboard Generated Time
             const genTime = {{ gen_timestamp }};
             if (genTime > 0) {
                 const genDate = new Date(genTime * 1000);
-                document.getElementById('dashboard-generated').innerHTML = 
-                    `Generated: <span style="font-weight: normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
+                document.getElementById('dashboard-generated').innerHTML =
+                    `Generated: <span style="font-weight:normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
             }
 
-            const charts = {};
+            const isPhone = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
 
-            function toggleFullscreen(symbol, boxId) {
-                const box = document.getElementById(boxId);
-                const isFullscreen = box.classList.toggle('fullscreen');
-                
-                // Hide/Show body scroll
-                document.body.style.overflow = isFullscreen ? 'hidden' : '';
-                
-                // Resize chart to fit new container size
-                if (charts[symbol]) {
-                    setTimeout(() => {
-                        charts[symbol].resize(box.clientWidth, box.clientHeight - 30);
-                        charts[symbol].timeScale().fitContent(); // Reset zoom to show all data
-                    }, 50);
-                }
-            }
+            const CHART_OPTS = {
+                autoSize: true,
+                layout: { background: { type: 'solid', color: 'white' }, textColor: '#333' },
+                grid: { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
+                timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
+                rightPriceScale: { autoScale: true, borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.1 } },
+                handleScroll: { mouseWheel: !isPhone, pressedMouseMove: !isPhone, horzTouchDrag: !isPhone, vertTouchDrag: false },
+                handleScale: { axisPressedMouseMove: !isPhone, mouseWheel: !isPhone, pinch: !isPhone },
+            };
 
-            symbols.forEach((symbol, index) => {
-                const containerId = `chart-${index + 1}`;
-                const container = document.getElementById(containerId);
+            const FS_CHART_OPTS = {
+                ...CHART_OPTS,
+                handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+                handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+            };
+
+            function buildChart(container, symbol, visibleBars = 150, opts = CHART_OPTS) {
                 const symbolData = allData[symbol] || { candles: [], ema9: [], ema21: [] };
-                const chartData = symbolData.candles;
-                const srResults = (allResults[symbol] && allResults[symbol].results) || [];
-                const lastBarTime = (allResults[symbol] && allResults[symbol].last_bar_time) || 0;
+                const chartData  = symbolData.candles;
+                const srResults  = (allResults[symbol] && allResults[symbol].results) || [];
+                if (chartData.length === 0) return null;
 
-                if (chartData.length === 0) return;
+                const chart = LightweightCharts.createChart(container, opts);
 
-                // Update Title with Time & Warning
-                if (lastBarTime > 0) {
-                    const date = new Date(lastBarTime * 1000);
-                    const utcStr = date.toUTCString().replace(' GMT', '');
-                    const localStr = date.toLocaleString();
-                    
-                    const nowTs = Math.floor(Date.now() / 1000);
-                    const isOutdated = (nowTs - lastBarTime) > (3600 * 2);
-                    const warning = isOutdated ? ' <span style="color: white; background: #ef5350; padding: 1px 4px; border-radius: 3px; font-weight: bold; font-size: 0.8em; margin-left: 5px;">⚠️ OUTDATED</span>' : '';
+                chart.addCandlestickSeries({
+                    upColor: '#26a69a', downColor: '#ef5350',
+                    borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+                }).setData(chartData);
 
-                    document.getElementById(`title-${symbol}`).innerHTML = 
-                        `${symbol}${warning} 🔍 | <span style="font-weight: normal; font-size: 0.85em; color: #666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
-                }
+                if (symbolData.ema9.length > 0)
+                    chart.addLineSeries({ color: '#2196F3', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+                         .setData(symbolData.ema9);
 
-                const chart = LightweightCharts.createChart(container, {
-                    autoSize: true,
-                    layout: {
-                        background: { type: 'solid', color: 'white' },
-                        textColor: '#333',
-                    },
-                    grid: {
-                        vertLines: { color: '#f5f5f5' },
-                        horzLines: { color: '#f5f5f5' },
-                    },
-                    timeScale: {
-                        timeVisible: true,
-                        secondsVisible: false,
-                        borderVisible: false,
-                    },
-                    rightPriceScale: {
-                        autoScale: true,
-                        borderVisible: false,
-                        scaleMargins: {
-                            top: 0.1,
-                            bottom: 0.1,
-                        },
-                    },
-                    handleScroll: {
-                        mouseWheel: true,
-                        pressedMouseMove: true,
-                        horzTouchDrag: true,
-                        vertTouchDrag: true,
-                    },
-                    handleScale: {
-                        axisPressedMouseMove: true,
-                        mouseWheel: true,
-                        pinch: true,
-                    },
-                });
-                charts[symbol] = chart;
+                if (symbolData.ema21.length > 0)
+                    chart.addLineSeries({ color: '#FF9800', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
+                         .setData(symbolData.ema21);
 
-                const candleSeries = chart.addCandlestickSeries({
-                    upColor: '#26a69a',
-                    downColor: '#ef5350',
-                    borderVisible: false,
-                    wickUpColor: '#26a69a',
-                    wickDownColor: '#ef5350',
-                });
-
-                candleSeries.setData(chartData);
-
-                // Add EMAs
-                if (symbolData.ema9.length > 0) {
-                    const ema9Series = chart.addLineSeries({ color: '#2196F3', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-                    ema9Series.setData(symbolData.ema9);
-                }
-                if (symbolData.ema21.length > 0) {
-                    const ema21Series = chart.addLineSeries({ color: '#FF9800', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
-                    ema21Series.setData(symbolData.ema21);
-                }
-
-                // Add S/R zones
                 srResults.forEach(res => {
-                    const color = res.result === 'support' ? 'rgba(38, 166, 154, 0.25)' : 'rgba(239, 83, 80, 0.25)';
-                    
+                    const color = res.result === 'support' ? 'rgba(38,166,154,0.25)' : 'rgba(239,83,80,0.25)';
                     const boxSeries = chart.addBaselineSeries({
                         baseValue: { type: 'price', price: res.price_range.low },
-                        topFillColor1: color,
-                        topFillColor2: color,
-                        topLineColor: 'transparent',
-                        bottomFillColor1: 'transparent',
-                        bottomFillColor2: 'transparent',
-                        bottomLineColor: 'transparent',
-                        lineWidth: 0,
-                        priceLineVisible: false,
-                        lastValueVisible: false,
-                        crosshairMarkerVisible: false,
-                        autoscaleInfoProvider: () => null,
+                        topFillColor1: color, topFillColor2: color, topLineColor: 'transparent',
+                        bottomFillColor1: 'transparent', bottomFillColor2: 'transparent', bottomLineColor: 'transparent',
+                        lineWidth: 0, priceLineVisible: false, lastValueVisible: false,
+                        crosshairMarkerVisible: false, autoscaleInfoProvider: () => null,
                     });
-
                     const startTime = typeof res.start_time === 'number' ? res.start_time : Math.floor(new Date(res.start_time).getTime() / 1000);
-                    const endTime = typeof res.end_time === 'number' ? res.end_time : Math.floor(new Date(res.end_time).getTime() / 1000);
-
+                    const endTime   = typeof res.end_time   === 'number' ? res.end_time   : Math.floor(new Date(res.end_time).getTime()   / 1000);
                     const boxData = chartData
                         .filter(d => d.time >= startTime && d.time <= endTime)
-                        .map(d => ({
-                            time: d.time,
-                            value: res.price_range.high
-                        }));
-                    
-                    if (boxData.length > 0) {
-                        boxSeries.setData(boxData);
-                    }
+                        .map(d => ({ time: d.time, value: res.price_range.high }));
+                    if (boxData.length > 0) boxSeries.setData(boxData);
                 });
+
+                const len = chartData.length;
+                chart.timeScale().setVisibleLogicalRange({ from: len - visibleBars, to: len - 1 });
+                return chart;
+            }
+
+            let fsChartInstance = null;
+
+            function openFullscreen(symbol) {
+                const overlay   = document.getElementById('fs-overlay');
+                const container = document.getElementById('fs-chart-container');
+                if (fsChartInstance) { fsChartInstance.remove(); fsChartInstance = null; }
+                container.innerHTML = '';
+                document.getElementById('fs-title').textContent = symbol + ' \u2014 click header or press Esc to close';
+                overlay.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                fsChartInstance = buildChart(container, symbol, 500, FS_CHART_OPTS);
+            }
+
+            function closeFullscreen() {
+                if (fsChartInstance) { fsChartInstance.remove(); fsChartInstance = null; }
+                document.getElementById('fs-chart-container').innerHTML = '';
+                document.getElementById('fs-overlay').style.display = 'none';
+                document.body.style.overflow = '';
+            }
+
+            document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFullscreen(); });
+
+            symbols.forEach((symbol, index) => {
+                const container   = document.getElementById(`chart-${index + 1}`);
+                const lastBarTime = (allResults[symbol] && allResults[symbol].last_bar_time) || 0;
+
+                if (lastBarTime > 0) {
+                    const date       = new Date(lastBarTime * 1000);
+                    const utcStr     = date.toUTCString().replace(' GMT', '');
+                    const localStr   = date.toLocaleString();
+                    const nowTs      = Math.floor(Date.now() / 1000);
+                    const isOutdated = (nowTs - lastBarTime) > (3600 * 2);
+                    const warning    = isOutdated
+                        ? ' <span style="color:white;background:#ef5350;padding:1px 4px;border-radius:3px;font-weight:bold;font-size:0.8em;margin-left:5px;">\u26a0\ufe0f OUTDATED</span>'
+                        : '';
+                    document.getElementById(`title-${symbol}`).innerHTML =
+                        `${symbol}${warning} &#x1F50D; | <span style="font-weight:normal;font-size:0.85em;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
+                }
+
+                buildChart(container, symbol);
             });
         </script>
     </body>
@@ -345,7 +315,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         symbols_json=json.dumps(SYMBOLS)
     )
     
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write(html_content)
     
     print(f"Dashboard generated: {output_file}")
@@ -453,11 +423,33 @@ def run_pipeline():
         except Exception as e:
             print(f"Error processing {symbol}: {e}")
             
-    # 3. Generate Dashboard
+    # 3. Cache results for fast regen
+    os.makedirs("data", exist_ok=True)
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(all_results, f)
+    print(f"Pipeline cache saved: {CACHE_FILE}")
+
+    # 4. Generate Dashboard
     generate_dashboard(all_results, config)
-    
-    # 4. Send Consolidated Notification
+
+    # 5. Send Consolidated Notification
     send_consolidated_telegram(active_detections)
 
+def regen_dashboard():
+    if not os.path.exists(CACHE_FILE):
+        print(f"No cache found at {CACHE_FILE}. Run the full pipeline first.")
+        return
+    config = load_config()
+    with open(CACHE_FILE, "r", encoding="utf-8") as f:
+        all_results = json.load(f)
+    generate_dashboard(all_results, config)
+    print("Dashboard regenerated from cache.")
+
 if __name__ == "__main__":
-    run_pipeline()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--regen", action="store_true", help="Regenerate dashboard from cached data without running the pipeline")
+    args = parser.parse_args()
+    if args.regen:
+        regen_dashboard()
+    else:
+        run_pipeline()
