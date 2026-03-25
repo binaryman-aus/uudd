@@ -120,7 +120,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             symbols.forEach((symbol, index) => {
                 const containerId = `chart-${index + 1}`;
                 const container = document.getElementById(containerId);
-                const chartData = allData[symbol] || [];
+                const symbolData = allData[symbol] || { candles: [], ema9: [], ema21: [] };
+                const chartData = symbolData.candles;
                 const srResults = (allResults[symbol] && allResults[symbol].results) || [];
                 const lastBarTime = (allResults[symbol] && allResults[symbol].last_bar_time) || 0;
 
@@ -187,6 +188,16 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 candleSeries.setData(chartData);
 
+                // Add EMAs
+                if (symbolData.ema9.length > 0) {
+                    const ema9Series = chart.addLineSeries({ color: '#2196F3', lineWidth: 1, title: 'EMA 9', priceLineVisible: false, lastValueVisible: false });
+                    ema9Series.setData(symbolData.ema9);
+                }
+                if (symbolData.ema21.length > 0) {
+                    const ema21Series = chart.addLineSeries({ color: '#FF9800', lineWidth: 1, title: 'EMA 21', priceLineVisible: false, lastValueVisible: false });
+                    ema21Series.setData(symbolData.ema21);
+                }
+
                 // Add S/R zones
                 srResults.forEach(res => {
                     const color = res.result === 'support' ? 'rgba(38, 166, 154, 0.25)' : 'rgba(239, 83, 80, 0.25)';
@@ -236,18 +247,38 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         symbol_data = all_results.get(symbol, {}).get('data', [])
         symbol_results = all_results.get(symbol, {}).get('results', [])
         
-        # Format chart data
-        chart_data = []
-        for bar in symbol_data:
-            chart_data.append({
-                "time": int(pd.to_datetime(bar['time']).timestamp()),
-                "open": float(bar['open']),
-                "high": float(bar['high']),
-                "low": float(bar['low']),
-                "close": float(bar['close'])
-            })
-        chart_data.sort(key=lambda x: x['time'])
-        formatted_all_data[symbol] = chart_data
+        # Format chart data and EMAs from table
+        if symbol_data:
+            chart_data = []
+            ema9_data = []
+            ema21_data = []
+            
+            # Sort by time ascending
+            symbol_data.sort(key=lambda x: x['time'])
+            
+            for row in symbol_data:
+                t = int(pd.to_datetime(row['time']).timestamp())
+                chart_data.append({
+                    "time": t,
+                    "open": float(row['open']),
+                    "high": float(row['high']),
+                    "low": float(row['low']),
+                    "close": float(row['close'])
+                })
+                # Use data from table columns
+                if 'ema9' in row and row['ema9'] is not None:
+                    ema9_data.append({"time": t, "value": float(row['ema9'])})
+                if 'ema21' in row and row['ema21'] is not None:
+                    ema21_data.append({"time": t, "value": float(row['ema21'])})
+            
+            formatted_all_data[symbol] = {
+                "candles": chart_data,
+                "ema9": ema9_data,
+                "ema21": ema21_data
+            }
+        else:
+            formatted_all_data[symbol] = {"candles": [], "ema9": [], "ema21": []}
+
         formatted_all_results[symbol] = {
             "results": symbol_results,
             "last_bar_time": chart_data[-1]['time'] if chart_data else 0
