@@ -163,6 +163,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 if (charts[symbol]) {
                     setTimeout(() => {
                         charts[symbol].resize(box.clientWidth, box.clientHeight - 30);
+                        charts[symbol].timeScale().fitContent(); // Reset zoom to show all data
                     }, 50);
                 }
             }
