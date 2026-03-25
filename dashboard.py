@@ -364,7 +364,7 @@ def send_consolidated_telegram(detections):
             f"   Range: `{det['range_low']:.2f} - {det['range_high']:.2f}`\n\n"
         )
     
-    message += "View Dashboard for details."
+    message += "[View Live Dashboard](https://binaryman-aus.github.io/uudd/)"
     
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
