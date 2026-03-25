@@ -28,8 +28,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 margin: 0; 
                 padding: 0; 
                 width: 100vw; 
-                height: 100vh; 
-                overflow: hidden; 
+                height: 100vh;
+                overflow: hidden;
                 font-family: sans-serif;
                 background-color: #f0f0f5;
             }
@@ -42,6 +42,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 justify-content: space-between;
                 padding: 0 15px;
                 font-size: 0.9em;
+                position: sticky;
+                top: 0;
+                z-index: 1000;
             }
             .grid-container {
                 display: grid;
@@ -51,6 +54,22 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 height: calc(100vh - 40px);
                 padding: 5px;
                 box-sizing: border-box;
+            }
+            /* Mobile Responsiveness */
+            @media (max-width: 768px) {
+                html, body {
+                    overflow: auto; /* Allow scrolling on mobile */
+                }
+                .grid-container {
+                    grid-template-columns: 1fr; /* Stack vertically */
+                    grid-template-rows: none;
+                    height: auto;
+                    overflow: visible;
+                }
+                .chart-box {
+                    height: 400px; /* Fixed height for readability on mobile */
+                    margin-bottom: 10px;
+                }
             }
             .chart-box {
                 background: white;
