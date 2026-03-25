@@ -207,11 +207,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     if (boxData.length > 0) boxSeries.setData(boxData);
                 });
 
-                const lastTime  = chartData[chartData.length - 1].time;
-                const startTime = chartData[Math.max(0, chartData.length - visibleBars)].time;
-                requestAnimationFrame(() => {
-                    chart.timeScale().setVisibleRange({ from: startTime, to: lastTime });
+                const containerWidth = container.offsetWidth || 600;
+                chart.timeScale().applyOptions({
+                    barSpacing: Math.max(1, containerWidth / visibleBars),
+                    rightOffset: 5,
                 });
+                chart.timeScale().scrollToRealTime();
                 return chart;
             }
 
