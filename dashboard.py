@@ -13,7 +13,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "REDACTED")
 
 def generate_dashboard(all_results, params, output_file="dashboard.html"):
     """
-    Generates a 3x3 dashboard HTML report.
+    Generates a 3x3 dashboard HTML report with mobile responsiveness and fullscreen toggle.
     """
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
@@ -28,8 +28,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 margin: 0; 
                 padding: 0; 
                 width: 100vw; 
-                height: 100vh;
-                overflow: hidden;
+                height: 100vh; 
+                overflow: hidden; 
                 font-family: sans-serif;
                 background-color: #f0f0f5;
             }
@@ -58,16 +58,16 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             /* Mobile Responsiveness */
             @media (max-width: 768px) {
                 html, body {
-                    overflow: auto; /* Allow scrolling on mobile */
+                    overflow: auto;
                 }
                 .grid-container {
-                    grid-template-columns: 1fr; /* Stack vertically */
+                    grid-template-columns: 1fr;
                     grid-template-rows: none;
                     height: auto;
                     overflow: visible;
                 }
                 .chart-box {
-                    height: 400px; /* Fixed height for readability on mobile */
+                    height: 400px !important;
                     margin-bottom: 10px;
                 }
             }
@@ -78,15 +78,29 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
+                transition: all 0.2s ease-in-out;
+            }
+            .chart-box.fullscreen {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                z-index: 9999 !important;
+                border: none !important;
             }
             .chart-header {
                 background: #eee;
-                padding: 2px 8px;
+                padding: 4px 8px;
                 font-size: 0.8em;
                 font-weight: bold;
                 border-bottom: 1px solid #ddd;
                 display: flex;
                 justify-content: space-between;
+                cursor: pointer;
+            }
+            .chart-header:hover {
+                background: #ddd;
             }
             .chart-container {
                 flex-grow: 1;
@@ -106,9 +120,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         </div>
         <div class="grid-container">
             {% for symbol in symbols %}
-            <div class="chart-box">
-                <div class="chart-header">
-                    <span id="title-{{ symbol }}">{{ symbol }}</span>
+            <div id="box-{{ loop.index }}" class="chart-box">
+                <div class="chart-header" onclick="toggleFullscreen('{{ symbol }}', 'box-{{ loop.index }}')">
+                    <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
                     {% if results[symbol] and results[symbol].results %}
                         {% set latest = results[symbol].results[-1] %}
                         <span class="sr-label {{ latest.result }}">
@@ -132,8 +146,25 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             const genTime = {{ gen_timestamp }};
             if (genTime > 0) {
                 const genDate = new Date(genTime * 1000);
-                document.getElementById('dashboard-generated').innerHTML =
+                document.getElementById('dashboard-generated').innerHTML = 
                     `Generated: <span style="font-weight: normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
+            }
+
+            const charts = {};
+
+            function toggleFullscreen(symbol, boxId) {
+                const box = document.getElementById(boxId);
+                const isFullscreen = box.classList.toggle('fullscreen');
+                
+                // Hide/Show body scroll
+                document.body.style.overflow = isFullscreen ? 'hidden' : '';
+                
+                // Resize chart to fit new container size
+                if (charts[symbol]) {
+                    setTimeout(() => {
+                        charts[symbol].resize(box.clientWidth, box.clientHeight - 30);
+                    }, 50);
+                }
             }
 
             symbols.forEach((symbol, index) => {
@@ -146,19 +177,18 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 if (chartData.length === 0) return;
 
-                // Update Title with Time
+                // Update Title with Time & Warning
                 if (lastBarTime > 0) {
                     const date = new Date(lastBarTime * 1000);
                     const utcStr = date.toUTCString().replace(' GMT', '');
                     const localStr = date.toLocaleString();
                     
-                    // Outdated check (H1 bars: if more than 2 hours old, show warning)
                     const nowTs = Math.floor(Date.now() / 1000);
                     const isOutdated = (nowTs - lastBarTime) > (3600 * 2);
                     const warning = isOutdated ? ' <span style="color: white; background: #ef5350; padding: 1px 4px; border-radius: 3px; font-weight: bold; font-size: 0.8em; margin-left: 5px;">⚠️ OUTDATED</span>' : '';
 
-                    document.getElementById(`title-${symbol}`).innerHTML =
-                        `${symbol}${warning} | <span style="font-weight: normal; font-size: 0.85em; color: #666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
+                    document.getElementById(`title-${symbol}`).innerHTML = 
+                        `${symbol}${warning} 🔍 | <span style="font-weight: normal; font-size: 0.85em; color: #666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
                 const chart = LightweightCharts.createChart(container, {
@@ -196,6 +226,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         pinch: true,
                     },
                 });
+                charts[symbol] = chart;
 
                 const candleSeries = chart.addCandlestickSeries({
                     upColor: '#26a69a',
