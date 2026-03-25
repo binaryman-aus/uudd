@@ -70,7 +70,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     overflow: visible;
                 }
                 .chart-box {
-                    height: 400px !important;
+                    height: 600px !important;
                     margin-bottom: 10px;
                 }
             }
