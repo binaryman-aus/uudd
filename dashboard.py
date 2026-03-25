@@ -190,11 +190,11 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 // Add EMAs
                 if (symbolData.ema9.length > 0) {
-                    const ema9Series = chart.addLineSeries({ color: '#2196F3', lineWidth: 1, title: 'EMA 9', priceLineVisible: false, lastValueVisible: false });
+                    const ema9Series = chart.addLineSeries({ color: '#2196F3', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
                     ema9Series.setData(symbolData.ema9);
                 }
                 if (symbolData.ema21.length > 0) {
-                    const ema21Series = chart.addLineSeries({ color: '#FF9800', lineWidth: 1, title: 'EMA 21', priceLineVisible: false, lastValueVisible: false });
+                    const ema21Series = chart.addLineSeries({ color: '#FF9800', lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
                     ema21Series.setData(symbolData.ema21);
                 }
 
