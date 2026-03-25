@@ -255,7 +255,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         `${symbol}${warning} &#x1F50D; | <span style="font-weight:normal;font-size:0.85em;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
-                buildChart(container, symbol);
+                buildChart(container, symbol, isPhone ? 100 : 150);
             });
         </script>
     </body>
