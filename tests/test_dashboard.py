@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from dashboard import build_history_string
+from dashboard import build_history_string, format_telegram_message
 
 
 def test_full_10_bars_mixed():
@@ -48,9 +48,6 @@ def test_more_than_10_bars_uses_last_10():
     # 105-109=~, 110=R, 111-114=~
     assert result == '~~~~~R~~~~'
     assert len(result) == 10
-
-
-from dashboard import format_telegram_message
 
 
 def test_format_telegram_message_structure():
