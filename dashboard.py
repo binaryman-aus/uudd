@@ -33,6 +33,22 @@ def build_history_string(bar_timestamps, symbol_results, last_n=10):
     return ''.join(chars).rjust(last_n, '~')
 
 
+def format_telegram_message(detections):
+    """
+    Build the consolidated Telegram alert message body.
+
+    detections: list of dicts with keys 'symbol' (str), 'result' ('support'/'resistance'),
+                'history' (10-char string from build_history_string)
+    Returns a Markdown-formatted string ready to send.
+    """
+    message = "🚨 S/R ALERT 🚨\n\n"
+    for det in detections:
+        emoji = "⬆️" if det['result'] == 'support' else "⬇️"
+        message += f"`{det['symbol']:<6} {det['history']}` {emoji}\n"
+    message += "\n[View Dashboard](https://binaryman-aus.github.io/uudd/)"
+    return message
+
+
 def generate_dashboard(all_results, params, output_file="dashboard.html"):
     """
     Generates a 3x3 dashboard HTML report with mobile responsiveness and fullscreen toggle.
