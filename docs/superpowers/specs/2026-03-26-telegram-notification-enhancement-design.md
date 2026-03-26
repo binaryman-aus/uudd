@@ -20,7 +20,7 @@ Enhance the consolidated Telegram S/R alert message to replace price range data 
   - `R` — resistance detected on that bar
   - `~` — no detection on that bar
   - Left = oldest bar, right = most recent (current) bar.
-- A **trailing emoji** shows the current detection type: 🟢 for support, 🔴 for resistance.
+- A **trailing emoji** shows the current detection type: ⬆️ for support, ⬇️ for resistance.
 - Symbol names are **padded to 6 characters** so the history columns align in monospace.
 
 ---
@@ -30,9 +30,9 @@ Enhance the consolidated Telegram S/R alert message to replace price range data 
 ```
 🚨 S/R ALERT 🚨
 
-`US500  ~~SSS~~RRR` 🔴
-`GER40  ~SSSSSSS~~` 🟢
-`XAUUSD RRRR~~SSSS` 🟢
+`US500  ~~SSS~~RRR` ⬇️
+`GER40  ~SSSSSSS~~` ⬆️
+`XAUUSD RRRR~~SSSS` ⬆️
 
 [View Dashboard](https://binaryman-aus.github.io/uudd/)
 ```
@@ -69,7 +69,7 @@ to:
 Rewrite message construction:
 - Header: `🚨 S/R ALERT 🚨\n\n`
 - Per symbol: `` `{symbol:<6} {det['history']}` {emoji}\n ``
-  - emoji = 🟢 if `result == 'support'` else 🔴
+  - emoji = ⬆️ if `result == 'support'` else ⬇️
 - Footer: `\n[View Dashboard](link)`
 
 Remove all references to `range_low` and `range_high`.
