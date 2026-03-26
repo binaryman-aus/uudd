@@ -43,7 +43,7 @@ def format_telegram_message(detections):
     """
     message = "🚨 S/R ALERT 🚨\n\n"
     for det in detections:
-        emoji = "⬆️" if det['result'] == 'support' else "⬇️"
+        emoji = {"support": "⬆️", "resistance": "⬇️"}[det['result']]
         message += f"`{det['symbol']:<6} {det['history']}` {emoji}\n"
     message += "\n[View Dashboard](https://binaryman-aus.github.io/uudd/)"
     return message
