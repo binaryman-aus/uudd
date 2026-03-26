@@ -94,8 +94,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 padding: 5px;
                 box-sizing: border-box;
             }
-            /* Phone-only layout: touch input + no hover = phone browser */
-            @media (pointer: coarse) and (hover: none) {
+            /* Phone-only layout: touch + no hover + narrow logical width (excludes touchscreen laptops) */
+            @media (pointer: coarse) and (hover: none) and (max-width: 768px) {
                 html, body {
                     overflow: auto;
                 }
