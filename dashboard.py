@@ -32,6 +32,7 @@ def build_history_string(bar_timestamps, symbol_results, last_n=10):
             chars.append('~')
     return ''.join(chars).rjust(last_n, '~')
 
+
 def generate_dashboard(all_results, params, output_file="dashboard.html"):
     """
     Generates a 3x3 dashboard HTML report with mobile responsiveness and fullscreen toggle.
