@@ -14,6 +14,24 @@ SYMBOLS = ["US500", "GER40", "JP225", "USOIL", "XAUUSD", "BTCUSD", "AUDUSD", "EU
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "REDACTED")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "REDACTED")
 
+def build_history_string(bar_timestamps, symbol_results, last_n=10):
+    """
+    Build an N-char S/R history string for the last N bars.
+
+    bar_timestamps: list of unix int timestamps for all bars, sorted ascending
+    symbol_results: list of dicts with 'detected_at' (unix int) and 'result' ('support'/'resistance')
+    Returns a string of length last_n: 'S', 'R', or '~' per bar, left-padded with '~' if fewer bars.
+    """
+    detection_map = {r['detected_at']: r['result'] for r in symbol_results}
+    recent = bar_timestamps[-last_n:]
+    chars = []
+    for t in recent:
+        if t in detection_map:
+            chars.append('S' if detection_map[t] == 'support' else 'R')
+        else:
+            chars.append('~')
+    return ''.join(chars).rjust(last_n, '~')
+
 def generate_dashboard(all_results, params, output_file="dashboard.html"):
     """
     Generates a 3x3 dashboard HTML report with mobile responsiveness and fullscreen toggle.
