@@ -14,6 +14,7 @@ SYMBOLS = ["US500", "GER40", "JP225", "USOIL", "XAUUSD", "BTCUSD", "AUDUSD", "EU
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "8705770562:AAG59xiUaxmKfluuvSxIfdhRY7mmLF85IGo")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "495450372")
 
+
 def build_history_string(bar_timestamps, symbol_results, last_n=10):
     """
     Build an N-char S/R history string for the last N bars.
@@ -362,6 +363,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         f.write(html_content)
     
     print(f"Dashboard generated: {output_file}")
+
 
 def send_consolidated_telegram(detections):
     """
