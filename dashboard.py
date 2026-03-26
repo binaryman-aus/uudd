@@ -365,28 +365,22 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
 def send_consolidated_telegram(detections):
     """
-    Sends a consolidated Telegram notification for all active S/R levels.
+    Sends a consolidated Telegram notification for all active S/R detections.
+    Each symbol shows a 10-bar history string and a directional arrow emoji.
     """
     if not detections:
         print("No active S/R detections to notify.")
         return
 
-    message = "🚨 *S/R DASHBOARD ALERT* 🚨\n\n"
-    for det in detections:
-        message += (
-            f"📍 *{det['symbol']}*: {det['result'].upper()}\n"
-            f"   Range: `{det['range_low']:.2f} - {det['range_high']:.2f}`\n\n"
-        )
-    
-    message += "[View Live Dashboard](https://binaryman-aus.github.io/uudd/)"
-    
+    message = format_telegram_message(detections)
+
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
         "parse_mode": "Markdown"
     }
-    
+
     try:
         response = requests.post(url, json=payload)
         if response.status_code == 200:
@@ -454,11 +448,12 @@ def run_pipeline():
                 latest_detection = symbol_results[-1]
                 last_bar_time = int(df['time'].iloc[-1].timestamp())
                 if latest_detection['detected_at'] == last_bar_time:
+                    bar_timestamps = [int(t.timestamp()) for t in df['time']]
+                    history = build_history_string(bar_timestamps, symbol_results)
                     active_detections.append({
                         "symbol": symbol,
                         "result": latest_detection['result'],
-                        "range_low": latest_detection['price_range']['low'],
-                        "range_high": latest_detection['price_range']['high']
+                        "history": history
                     })
 
             print(f"Done {symbol}. Found {len(symbol_results)} S/R zones.")
