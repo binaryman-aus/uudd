@@ -118,9 +118,13 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
                     {% if results[symbol] and results[symbol].results %}
                         {% set latest = results[symbol].results[-1] %}
-                        <span class="sr-label {{ latest.result }}">
-                            {{ latest.result.upper() }} @ {{ "%.2f"|format(latest.price_range.low) }}-{{ "%.2f"|format(latest.price_range.high) }}
-                        </span>
+                        {% if latest.detected_at == results[symbol].last_bar_time %}
+                            <span class="sr-label {{ latest.result }}">
+                                {{ latest.result.upper() }} @ {{ "%.2f"|format(latest.price_range.low) }}-{{ "%.2f"|format(latest.price_range.high) }}
+                            </span>
+                        {% else %}
+                            <span style="color: #999;">No S/R Detected</span>
+                        {% endif %}
                     {% else %}
                         <span style="color: #999;">No S/R Detected</span>
                     {% endif %}
