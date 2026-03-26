@@ -48,3 +48,41 @@ def test_more_than_10_bars_uses_last_10():
     # 105-109=~, 110=R, 111-114=~
     assert result == '~~~~~R~~~~'
     assert len(result) == 10
+
+
+from dashboard import format_telegram_message
+
+
+def test_format_telegram_message_structure():
+    """Message contains header, rows, and footer link."""
+    detections = [
+        {'symbol': 'US500',  'result': 'resistance', 'history': '~~SSS~~RRR'},
+        {'symbol': 'XAUUSD', 'result': 'support',    'history': '~SSSSSSS~~'},
+    ]
+    msg = format_telegram_message(detections)
+    assert msg.startswith('🚨 S/R ALERT 🚨')
+    assert '`US500  ~~SSS~~RRR` ⬇️' in msg
+    assert '`XAUUSD ~SSSSSSS~~` ⬆️' in msg
+    assert '[View Dashboard](https://binaryman-aus.github.io/uudd/)' in msg
+
+
+def test_format_telegram_message_support_arrow():
+    """Support → ⬆️."""
+    detections = [{'symbol': 'EURUSD', 'result': 'support', 'history': 'SSSSSSSSSS'}]
+    msg = format_telegram_message(detections)
+    assert '`EURUSD SSSSSSSSSS` ⬆️' in msg
+
+
+def test_format_telegram_message_resistance_arrow():
+    """Resistance → ⬇️."""
+    detections = [{'symbol': 'BTCUSD', 'result': 'resistance', 'history': 'RRRRRRRRRR'}]
+    msg = format_telegram_message(detections)
+    assert '`BTCUSD RRRRRRRRRR` ⬇️' in msg
+
+
+def test_format_telegram_message_symbol_padding():
+    """5-char symbols get padded to 6 with a trailing space."""
+    detections = [{'symbol': 'GER40', 'result': 'support', 'history': 'SSSSSSSSSS'}]
+    msg = format_telegram_message(detections)
+    # 'GER40' padded to 6 = 'GER40 ' (one trailing space)
+    assert '`GER40  SSSSSSSSSS` ⬆️' in msg
