@@ -165,18 +165,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             <div id="box-{{ loop.index }}" class="chart-box">
                 <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
                     <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
-                    {% if results[symbol] and results[symbol].results %}
-                        {% set latest = results[symbol].results[-1] %}
-                        {% if latest.detected_at == results[symbol].last_bar_time %}
-                            <span class="sr-label {{ latest.result }}">
-                                {{ latest.result.upper() }} @ {{ "%.2f"|format(latest.price_range.low) }}-{{ "%.2f"|format(latest.price_range.high) }}
-                            </span>
-                        {% else %}
-                            <span style="color: #999;">No S/R Detected</span>
-                        {% endif %}
-                    {% else %}
-                        <span style="color: #999;">No S/R Detected</span>
-                    {% endif %}
+                    <span style="font-family:monospace;font-size:0.95em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
                     <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
                 </div>
                 <div id="chart-{{ loop.index }}" class="chart-container"></div>
@@ -393,10 +382,23 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             "results": symbol_results,
             "last_bar_time": chart_data[-1]['time'] if chart_data else 0
         }
-        
+
+    # Build 10-char history strings for each symbol (used in chart headers)
+    histories = {}
+    for symbol in SYMBOLS:
+        symbol_data = all_results.get(symbol, {}).get('data', [])
+        symbol_results = all_results.get(symbol, {}).get('results', [])
+        if symbol_data:
+            sorted_data = sorted(symbol_data, key=lambda x: x['time'])
+            bar_timestamps = [int(pd.to_datetime(row['time']).timestamp()) for row in sorted_data]
+            histories[symbol] = build_history_string(bar_timestamps, symbol_results)
+        else:
+            histories[symbol] = '~~~~~~~~~~'
+
     html_content = template.render(
         symbols=SYMBOLS,
         results=formatted_all_results,
+        histories=histories,
         now=now_str,
         gen_timestamp=int(datetime.now().timestamp()),
         all_data_json=json.dumps(formatted_all_data),
