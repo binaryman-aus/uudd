@@ -70,14 +70,42 @@ To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 6 bars) must sa
     - **Resistance**: Max 1 bar can have a High strictly **below** the range.
     - **Support**: Max 1 bar can have a Low strictly **above** the range.
 
+### 4. Tiebreaker When Both S and R Are Detected
+It is possible for the same bar to simultaneously satisfy both support and resistance conditions (e.g., a doji-like bar with lows and highs both hugging the same tight zone). In this case the winner is decided by a three-tier priority:
+
+1. **Higher touch count wins** — whichever type has more bars touching the zone is reported.
+2. **Larger average wick ratio wins** — if counts are equal, the type with the higher average wick-to-bar-range ratio across its in-zone bars wins. A larger average wick means the level is showing stronger price rejection.
+3. **Resistance wins** — if both count and average wick ratio are identical, resistance is the final fallback.
+
+Only a single result (`support` or `resistance`) is returned per bar.
+
 ---
 
 ## 🛠️ Toolset
 
 ### `dashboard.py` (The Pipeline)
 Automatically processes 9 major symbols (US500, GER40, JP225, USOIL, XAUUSD, BTCUSD, AUDUSD, EURUSD, USDJPY) and builds a **3x3 Dashboard**.
-- **Consolidated Alerts**: Sends a single Telegram message summarizing all active S/R levels.
+- **Consolidated Alerts**: Sends a single Telegram message for all symbols where the **latest bar has an active S/R detection**. Each symbol line shows a 10-bar history string and a directional arrow (⬆️ support / ⬇️ resistance).
 - **Single-Screen View**: Optimized HTML layout ([`dashboard.html`](dashboard.html)) that fits 9 interactive charts without scrolling.
+
+#### Telegram Alert Format
+
+```
+🚨 S/R ALERT 🚨
+
+`US500  ~~SSS~~RRR` ⬇️
+`GER40  ~SSSSSSS~~` ⬆️
+`XAUUSD RRRR~~SSSS` ⬆️
+
+[View Dashboard](https://binaryman-aus.github.io/uudd/)
+```
+
+Each row is rendered in monospace. The 10-character history string reads left (oldest) → right (most recent):
+- `S` — support detected on that bar
+- `R` — resistance detected on that bar
+- `~` — no detection on that bar
+
+Symbols with fewer than 10 bars of history are left-padded with `~`. Only symbols with an active detection on the very latest bar are included.
 
 ### `sr_detect.py` (The Engine)
 Identifies S/R levels. Includes a powerful **Debug Mode**:
