@@ -120,16 +120,29 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
             .chart-header {
                 background: #eee;
-                padding: 4px 8px;
+                padding: 3px 8px 2px 8px;
                 font-size: 0.8em;
                 font-weight: bold;
                 border-bottom: 1px solid #ddd;
                 display: flex;
-                justify-content: space-between;
+                flex-direction: column;
                 cursor: pointer;
             }
             .chart-header:hover {
                 background: #ddd;
+            }
+            .chart-header-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .chart-subtitle {
+                font-size: 0.85em;
+                font-weight: normal;
+                color: #777;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .reset-btn {
                 background: none;
@@ -164,9 +177,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             {% for symbol in symbols %}
             <div id="box-{{ loop.index }}" class="chart-box">
                 <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
-                    <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
-                    <span style="font-family:monospace;font-size:0.95em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
-                    <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
+                    <div class="chart-header-row">
+                        <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
+                        <span style="font-family:monospace;font-size:1em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
+                        <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
+                    </div>
+                    <div id="subtitle-{{ symbol }}" class="chart-subtitle"></div>
                 </div>
                 <div id="chart-{{ loop.index }}" class="chart-container"></div>
             </div>
@@ -326,7 +342,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         ? ' <span style="color:white;background:#ef5350;padding:1px 4px;border-radius:3px;font-weight:bold;font-size:0.8em;margin-left:5px;">\u26a0\ufe0f OUTDATED</span>'
                         : '';
                     document.getElementById(`title-${symbol}`).innerHTML =
-                        `${symbol}${warning} &#x1F50D; | <span style="font-weight:normal;font-size:0.85em;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
+                        `${symbol}${warning} &#x1F50D;`;
+                    document.getElementById(`subtitle-${symbol}`).textContent =
+                        `UTC: ${utcStr} | Local: ${localStr}`;
                 }
 
                 gridCharts[symbol] = buildChart(container, symbol, isPhone ? 100 : 150);
