@@ -164,12 +164,43 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
             .support { color: green; }
             .resistance { color: red; }
+            .settings-btn {
+                background: none; border: none; cursor: pointer;
+                font-size: 1.2em; color: white; padding: 4px 8px;
+                line-height: 1; border-radius: 3px;
+            }
+            .settings-btn:hover { background: rgba(255,255,255,0.15); }
+            #settings-panel {
+                display: none; position: absolute; top: 40px; right: 10px;
+                background: white; border: 1px solid #ccc; border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000;
+                min-width: 180px; padding: 6px 0;
+            }
+            .settings-label {
+                padding: 4px 14px; font-size: 0.8em; color: #888;
+                font-weight: bold; text-transform: uppercase;
+            }
+            .settings-item {
+                padding: 8px 14px; cursor: pointer; font-size: 0.9em; color: #333;
+            }
+            .settings-item:hover { background: #f0f0f0; }
+            .settings-item.active { font-weight: bold; color: #2196F3; }
         </style>
     </head>
     <body>
-        <div class="dashboard-header">
-            <div><strong>S/R Multi-Symbol Dashboard</strong> | H1 Timeframe | Last 150 Bars</div>
-            <div id="dashboard-generated">Generated: {{ now }}</div>
+        <div class="dashboard-header" style="position:relative;">
+            <div><strong>S/R Multi-Symbol Dashboard</strong> | H1 Timeframe | <span id="bars-label">Last 150 Bars</span></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div id="dashboard-generated">Generated: {{ now }}</div>
+                <button class="settings-btn" onclick="toggleSettings(event)" title="Settings">&#x2699;&#xFE0F;</button>
+            </div>
+            <div id="settings-panel" onclick="event.stopPropagation()">
+                <div class="settings-label">Default Bars</div>
+                <div class="settings-item" onclick="setDefaultBars(50)">50 bars</div>
+                <div class="settings-item" onclick="setDefaultBars(100)">100 bars</div>
+                <div class="settings-item" onclick="setDefaultBars(150)">150 bars</div>
+                <div class="settings-item" onclick="setDefaultBars(200)">200 bars</div>
+            </div>
         </div>
         <div class="grid-container">
             {% for symbol in symbols %}
@@ -214,6 +245,42 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
 
             const isPhone = document.documentElement.classList.contains('phone');
+
+            function getDefaultBars() {
+                const saved = localStorage.getItem('defaultBars');
+                if (saved) return parseInt(saved, 10);
+                return isPhone ? 100 : 150;
+            }
+            function setDefaultBars(n) {
+                localStorage.setItem('defaultBars', n);
+                document.getElementById('bars-label').textContent = `Last ${n} Bars`;
+                symbols.forEach(symbol => {
+                    const chart = gridCharts[symbol];
+                    if (!chart) return;
+                    const idx = symbols.indexOf(symbol) + 1;
+                    const container = document.getElementById(`chart-${idx}`);
+                    const w = container.offsetWidth || 600;
+                    chart.timeScale().applyOptions({ barSpacing: Math.max(1, w / n), rightOffset: 5 });
+                    chart.timeScale().scrollToRealTime();
+                });
+                closeSettings();
+            }
+            function closeSettings() {
+                document.getElementById('settings-panel').style.display = 'none';
+            }
+            function toggleSettings(e) {
+                e.stopPropagation();
+                const panel = document.getElementById('settings-panel');
+                const isOpen = panel.style.display === 'block';
+                panel.style.display = isOpen ? 'none' : 'block';
+                if (!isOpen) {
+                    const cur = getDefaultBars();
+                    document.querySelectorAll('.settings-item').forEach(el => {
+                        el.classList.toggle('active', el.textContent.startsWith(String(cur)));
+                    });
+                }
+            }
+            document.addEventListener('click', () => closeSettings());
 
             const CHART_OPTS = {
                 autoSize: true,
@@ -287,7 +354,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 if (!chart) return;
                 const idx = symbols.indexOf(symbol) + 1;
                 const container = document.getElementById(`chart-${idx}`);
-                const visibleBars = isPhone ? 100 : 150;
+                const visibleBars = getDefaultBars();
                 const containerWidth = container.offsetWidth || 600;
                 chart.timeScale().applyOptions({
                     barSpacing: Math.max(1, containerWidth / visibleBars),
@@ -328,6 +395,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
             document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFullscreen(); });
 
+            // Sync header label with stored preference on load
+            document.getElementById('bars-label').textContent = `Last ${getDefaultBars()} Bars`;
+
             symbols.forEach((symbol, index) => {
                 const container   = document.getElementById(`chart-${index + 1}`);
                 const lastBarTime = (allResults[symbol] && allResults[symbol].last_bar_time) || 0;
@@ -346,7 +416,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         `${symbol}${warning} &#x1F50D; <span style="font-weight:normal;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
-                gridCharts[symbol] = buildChart(container, symbol, isPhone ? 100 : 150);
+                gridCharts[symbol] = buildChart(container, symbol, getDefaultBars());
             });
         </script>
     </body>
