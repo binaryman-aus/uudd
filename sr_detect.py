@@ -109,14 +109,17 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
         
         # Rejection Wick Validation for Resistance (Upper Wicks)
         wick_valid = True
+        avg_wick_ratio = 0.0
         if count > 0:
             in_range_bars = recent_df[in_range_mask]
             upper_wicks = (in_range_bars['high'] - in_range_bars[['open', 'close']].max(axis=1))
             total_ranges = (in_range_bars['high'] - in_range_bars['low']).replace(0, 0.0001)
+            wick_ratios = upper_wicks / total_ranges
             # Relaxed: At least 50% of bars touching the level must have the required wick
-            wick_met_count = (upper_wicks / total_ranges >= wick_percentage).sum()
+            wick_met_count = (wick_ratios >= wick_percentage).sum()
             wick_valid = (wick_met_count >= len(in_range_bars) * 0.5)
-        
+            avg_wick_ratio = float(wick_ratios.mean())
+
         if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
             if count > max_high_count:
                 in_range_times = recent_df[in_range_mask]['time']
@@ -127,6 +130,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
+                    "avg_wick_ratio": avg_wick_ratio,
                     "start_time": in_range_times.iloc[0].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "end_time": in_range_times.iloc[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "wick_valid": bool(wick_valid),
@@ -159,14 +163,17 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
         
         # Rejection Wick Validation for Support (Lower Wicks)
         wick_valid = True
+        avg_wick_ratio = 0.0
         if count > 0:
             in_range_bars = recent_df[in_range_mask]
             lower_wicks = (in_range_bars[['open', 'close']].min(axis=1) - in_range_bars['low'])
             total_ranges = (in_range_bars['high'] - in_range_bars['low']).replace(0, 0.0001)
+            wick_ratios = lower_wicks / total_ranges
             # Relaxed: At least 50% of bars touching the level must have the required wick
-            wick_met_count = (lower_wicks / total_ranges >= wick_percentage).sum()
+            wick_met_count = (wick_ratios >= wick_percentage).sum()
             wick_valid = (wick_met_count >= len(in_range_bars) * 0.5)
-        
+            avg_wick_ratio = float(wick_ratios.mean())
+
         if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
             if count > max_low_count:
                 in_range_times = recent_df[in_range_mask]['time']
@@ -177,6 +184,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
+                    "avg_wick_ratio": avg_wick_ratio,
                     "start_time": in_range_times.iloc[0].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "end_time": in_range_times.iloc[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "wick_valid": bool(wick_valid),
@@ -184,11 +192,15 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
                     "last_in_range": bool(last_in_range)
                 }
 
-    # Decide which one to report (or both)
-    # Preference to the one with higher count, then more recent
+    # Decide which one to report: higher count wins; on a tie, larger avg wick ratio wins;
+    # if still tied, resistance wins.
     sr_found = None
     if best_resistance and best_support:
-        if best_resistance['count'] >= best_support['count']:
+        if best_resistance['count'] > best_support['count']:
+            sr_found = best_resistance
+        elif best_support['count'] > best_resistance['count']:
+            sr_found = best_support
+        elif best_resistance['avg_wick_ratio'] >= best_support['avg_wick_ratio']:
             sr_found = best_resistance
         else:
             sr_found = best_support
