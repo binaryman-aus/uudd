@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from jinja2 import Template
 import requests
 from fetch_ohlcv import fetch_ohlcv
@@ -510,10 +510,13 @@ def run_pipeline():
             }
             
             # Check for latest bar detection (Active S/R)
+            # Also verify the last bar is fresh (within 2h of now) to exclude closed markets
             if symbol_results:
                 latest_detection = symbol_results[-1]
                 last_bar_time = int(df['time'].iloc[-1].timestamp())
-                if latest_detection['detected_at'] == last_bar_time:
+                now_utc = int(datetime.now(timezone.utc).timestamp())
+                market_is_open = (now_utc - last_bar_time) <= 7200  # 2 hours = one H1 bar
+                if latest_detection['detected_at'] == last_bar_time and market_is_open:
                     bar_timestamps = [int(t.timestamp()) for t in df['time']]
                     history = build_history_string(bar_timestamps, symbol_results)
                     active_detections.append({
