@@ -169,8 +169,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             <div id="box-{{ loop.index }}" class="chart-box">
                 <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
                     <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
-                    <span style="font-family:monospace;font-size:1em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
-                    <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
+                    <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                        <span style="font-family:monospace;font-size:1em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
+                        <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
+                    </span>
                 </div>
                 <div id="chart-{{ loop.index }}" class="chart-container"></div>
             </div>
@@ -197,8 +199,11 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             const genTime = {{ gen_timestamp }};
             if (genTime > 0) {
                 const genDate = new Date(genTime * 1000);
+                const gpad      = n => String(n).padStart(2, '0');
+                const genUtcStr   = `${genDate.getUTCFullYear()}-${gpad(genDate.getUTCMonth()+1)}-${gpad(genDate.getUTCDate())} ${gpad(genDate.getUTCHours())}:${gpad(genDate.getUTCMinutes())}`;
+                const genLocalStr = `${genDate.getFullYear()}-${gpad(genDate.getMonth()+1)}-${gpad(genDate.getDate())} ${gpad(genDate.getHours())}:${gpad(genDate.getMinutes())}`;
                 document.getElementById('dashboard-generated').innerHTML =
-                    `Generated: <span style="font-weight:normal;">UTC: ${genDate.toUTCString().replace(' GMT', '')} | Local: ${genDate.toLocaleString()}</span>`;
+                    `Generated: <span style="font-weight:normal;">UTC: ${genUtcStr} | Local: ${genLocalStr}</span>`;
             }
 
             const isPhone = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
@@ -321,16 +326,17 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const lastBarTime = (allResults[symbol] && allResults[symbol].last_bar_time) || 0;
 
                 if (lastBarTime > 0) {
-                    const date       = new Date(lastBarTime * 1000);
-                    const pad        = n => String(n).padStart(2, '0');
-                    const localStr   = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+                    const date     = new Date(lastBarTime * 1000);
+                    const pad      = n => String(n).padStart(2, '0');
+                    const utcStr   = `${date.getUTCFullYear()}-${pad(date.getUTCMonth()+1)}-${pad(date.getUTCDate())} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+                    const localStr = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
                     const nowTs      = Math.floor(Date.now() / 1000);
                     const isOutdated = (nowTs - lastBarTime) > (3600 * 2);
                     const warning    = isOutdated
                         ? ' <span style="color:white;background:#ef5350;padding:1px 4px;border-radius:3px;font-weight:bold;font-size:0.8em;margin-left:5px;">\u26a0\ufe0f OUTDATED</span>'
                         : '';
                     document.getElementById(`title-${symbol}`).innerHTML =
-                        `${symbol}${warning} &#x1F50D; <span style="font-weight:normal;color:#666;">${localStr}</span>`;
+                        `${symbol}${warning} &#x1F50D; <span style="font-weight:normal;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
                 gridCharts[symbol] = buildChart(container, symbol, isPhone ? 100 : 150);
