@@ -61,6 +61,15 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
     <html>
     <head>
         <title>S/R Dashboard (3x3)</title>
+        <script>
+            /* Runs synchronously before CSS renders — no layout flash.
+               userAgentData.mobile is the W3C UA Client Hints standard: browsers explicitly
+               report true on mobile, false on desktop (incl. Surface with touch). Falls back
+               to UA string regex for Firefox/Safari which don't yet support userAgentData. */
+            if (navigator.userAgentData?.mobile ?? /Mobi|Android/i.test(navigator.userAgent)) {
+                document.documentElement.classList.add('phone');
+            }
+        </script>
         <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
         <style>
             html, body { 
@@ -94,21 +103,19 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 padding: 5px;
                 box-sizing: border-box;
             }
-            /* Phone-only layout: touch + no hover + narrow logical width (excludes touchscreen laptops) */
-            @media (pointer: coarse) and (hover: none) and (max-width: 768px) {
-                html, body {
-                    overflow: auto;
-                }
-                .grid-container {
-                    grid-template-columns: 1fr;
-                    grid-template-rows: none;
-                    height: auto;
-                    overflow: visible;
-                }
-                .chart-box {
-                    height: 600px !important;
-                    margin-bottom: 10px;
-                }
+            /* Phone layout — class set synchronously by inline script using userAgentData.mobile */
+            html.phone, html.phone body {
+                overflow: auto;
+            }
+            html.phone .grid-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: none;
+                height: auto;
+                overflow: visible;
+            }
+            html.phone .chart-box {
+                height: 600px !important;
+                margin-bottom: 10px;
             }
             .chart-box {
                 background: white;
@@ -206,7 +213,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     `Generated: <span style="font-weight:normal;">UTC: ${genUtcStr} | Local: ${genLocalStr}</span>`;
             }
 
-            const isPhone = window.matchMedia('(pointer: coarse) and (hover: none)').matches;
+            const isPhone = document.documentElement.classList.contains('phone');
 
             const CHART_OPTS = {
                 autoSize: true,
