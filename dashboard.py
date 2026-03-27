@@ -131,6 +131,19 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .chart-header:hover {
                 background: #ddd;
             }
+            .reset-btn {
+                background: none;
+                border: 1px solid #aaa;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 1em;
+                line-height: 1;
+                padding: 0px 5px;
+                color: #555;
+                flex-shrink: 0;
+                align-self: center;
+            }
+            .reset-btn:hover { background: #bbb; color: #000; }
             .chart-container {
                 flex-grow: 1;
                 position: relative;
@@ -164,6 +177,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     {% else %}
                         <span style="color: #999;">No S/R Detected</span>
                     {% endif %}
+                    <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
                 </div>
                 <div id="chart-{{ loop.index }}" class="chart-container"></div>
             </div>
@@ -174,7 +188,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         <div id="fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:white;flex-direction:column;">
             <div id="fs-header" style="background:#eee;padding:4px 12px;font-size:0.85em;font-weight:bold;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer;" onclick="closeFullscreen()">
                 <span id="fs-title"></span>
-                <span style="font-size:1.1em;padding:2px 8px;background:#ccc;border-radius:3px;">&#x2715; Close</span>
+                <span style="display:flex;gap:8px;align-items:center;">
+                    <button class="reset-btn" onclick="resetFsChart(event)" title="Reset zoom &amp; position" style="font-size:1.1em;padding:2px 8px;">&#x21BA; Reset</button>
+                    <span style="font-size:1.1em;padding:2px 8px;background:#ccc;border-radius:3px;">&#x2715; Close</span>
+                </span>
             </div>
             <div id="fs-chart-container" style="flex:1;position:relative;min-height:0;"></div>
         </div>
@@ -257,6 +274,34 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
 
             let fsChartInstance = null;
+            const gridCharts = {};
+
+            function resetChart(symbol, e) {
+                e.stopPropagation();
+                const chart = gridCharts[symbol];
+                if (!chart) return;
+                const idx = symbols.indexOf(symbol) + 1;
+                const container = document.getElementById(`chart-${idx}`);
+                const visibleBars = isPhone ? 100 : 150;
+                const containerWidth = container.offsetWidth || 600;
+                chart.timeScale().applyOptions({
+                    barSpacing: Math.max(1, containerWidth / visibleBars),
+                    rightOffset: 5,
+                });
+                chart.timeScale().scrollToRealTime();
+            }
+
+            function resetFsChart(e) {
+                e.stopPropagation();
+                if (!fsChartInstance) return;
+                const container = document.getElementById('fs-chart-container');
+                const containerWidth = container.offsetWidth || 600;
+                fsChartInstance.timeScale().applyOptions({
+                    barSpacing: Math.max(1, containerWidth / 500),
+                    rightOffset: 5,
+                });
+                fsChartInstance.timeScale().scrollToRealTime();
+            }
 
             function openFullscreen(symbol) {
                 const overlay   = document.getElementById('fs-overlay');
@@ -295,7 +340,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         `${symbol}${warning} &#x1F50D; | <span style="font-weight:normal;font-size:0.85em;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
-                buildChart(container, symbol, isPhone ? 100 : 150);
+                gridCharts[symbol] = buildChart(container, symbol, isPhone ? 100 : 150);
             });
         </script>
     </body>
