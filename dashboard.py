@@ -170,7 +170,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
                     <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
                     <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                        <span style="font-family:monospace;font-size:1em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
+                        <span style="font-family:monospace;font-size:1.2em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
                         <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
                     </span>
                 </div>
