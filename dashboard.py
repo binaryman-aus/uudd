@@ -120,29 +120,20 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
             .chart-header {
                 background: #eee;
-                padding: 3px 8px 2px 8px;
+                padding: 4px 8px;
                 font-size: 0.8em;
                 font-weight: bold;
                 border-bottom: 1px solid #ddd;
                 display: flex;
-                flex-direction: column;
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
                 cursor: pointer;
+                white-space: nowrap;
+                overflow: hidden;
             }
             .chart-header:hover {
                 background: #ddd;
-            }
-            .chart-header-row {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-            .chart-subtitle {
-                font-size: 0.85em;
-                font-weight: normal;
-                color: #777;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
             }
             .reset-btn {
                 background: none;
@@ -177,12 +168,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             {% for symbol in symbols %}
             <div id="box-{{ loop.index }}" class="chart-box">
                 <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
-                    <div class="chart-header-row">
-                        <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
-                        <span style="font-family:monospace;font-size:1em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
-                        <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
-                    </div>
-                    <div id="subtitle-{{ symbol }}" class="chart-subtitle"></div>
+                    <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
+                    <span style="font-family:monospace;font-size:1em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
+                    <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
                 </div>
                 <div id="chart-{{ loop.index }}" class="chart-container"></div>
             </div>
@@ -334,17 +322,15 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 if (lastBarTime > 0) {
                     const date       = new Date(lastBarTime * 1000);
-                    const utcStr     = date.toUTCString().replace(' GMT', '');
-                    const localStr   = date.toLocaleString();
+                    const pad        = n => String(n).padStart(2, '0');
+                    const localStr   = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
                     const nowTs      = Math.floor(Date.now() / 1000);
                     const isOutdated = (nowTs - lastBarTime) > (3600 * 2);
                     const warning    = isOutdated
                         ? ' <span style="color:white;background:#ef5350;padding:1px 4px;border-radius:3px;font-weight:bold;font-size:0.8em;margin-left:5px;">\u26a0\ufe0f OUTDATED</span>'
                         : '';
                     document.getElementById(`title-${symbol}`).innerHTML =
-                        `${symbol}${warning} &#x1F50D;`;
-                    document.getElementById(`subtitle-${symbol}`).textContent =
-                        `UTC: ${utcStr} | Local: ${localStr}`;
+                        `${symbol}${warning} &#x1F50D; <span style="font-weight:normal;color:#666;">${localStr}</span>`;
                 }
 
                 gridCharts[symbol] = buildChart(container, symbol, isPhone ? 100 : 150);
