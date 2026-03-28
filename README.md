@@ -80,7 +80,7 @@ z_high = price_range.high = anchor_price + y_range
 ```
 
 Where:
-- **`anchor_price`** — the bar's **High** for a resistance zone, or the bar's **Low** for a support zone (the specific bar whose wick cluster triggered detection).
+- **`anchor_price`** — the bar's **High** (resistance) or **Low** (support) that produces the densest cluster. The algorithm tries every bar in the N-bar window as a candidate center: for each candidate, it counts how many other bars have their High (or Low) within `[candidate − y_range, candidate + y_range]`. The candidate with the highest count becomes the anchor, and its High/Low is `anchor_price`. All other constraints (recency, close rule, wick rule, drift rule) must also pass for that candidate to be accepted.
 - **`y_range`** — `ATR × threshold_factor` (half-width of the zone, in price units).
 
 So the zone is always **symmetric** around its anchor price, with a total width of `2 × ATR × threshold_factor`.
