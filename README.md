@@ -60,10 +60,21 @@ To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 6 bars) must sa
 - *Note: Price is allowed to spike through (wicks), but closing beyond the boundary invalidates the consolidation.*
 
 #### D. Price Rejection (Wick Rule)
-- To ensure the level represents a "rejection" area, at least **50%** of the bars touching the range must have significant rejection wicks:
-    - **Resistance**: Long upper wicks.
-    - **Support**: Long lower wicks.
-- The "length" is defined by the `--wick` parameter as a percentage of the bar's total range.
+To ensure the level represents a rejection area, at least **50%** of the bars touching the range must have a meaningful rejection wick on the correct side.
+
+Wick size is measured as a **ratio of the bar's total range** (`High − Low`):
+
+```
+# Resistance — upper wick ratio per bar:
+upper_wick  = High − max(Open, Close)
+wick_ratio  = upper_wick / (High − Low)
+
+# Support — lower wick ratio per bar:
+lower_wick  = min(Open, Close) − Low
+wick_ratio  = lower_wick / (High − Low)
+```
+
+A bar qualifies if `wick_ratio ≥ --wick` (default `0.1`, i.e. the rejection wick must be at least **10% of the bar's total High-to-Low range**). At least half of the in-range bars must qualify for the zone to pass this rule.
 
 #### E. Drift Constraint (The "Miss" Rule)
 - To ensure a tight cluster, no more than **one bar** in the window is allowed to "drift" away from the level:
