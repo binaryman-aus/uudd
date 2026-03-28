@@ -70,7 +70,35 @@ To be confirmed as a valid S/R zone, a window of $N$ bars (e.g., 6 bars) must sa
     - **Resistance**: Max 1 bar can have a High strictly **below** the range.
     - **Support**: Max 1 bar can have a Low strictly **above** the range.
 
-### 4. Tiebreaker When Both S and R Are Detected
+### 4. Zone Boundaries: `z_low` and `z_high`
+
+Every detected zone is exported as a `price_range` object with two boundaries:
+
+```
+z_low  = price_range.low  = anchor_price − y_range
+z_high = price_range.high = anchor_price + y_range
+```
+
+Where:
+- **`anchor_price`** — the bar's **High** for a resistance zone, or the bar's **Low** for a support zone (the specific bar whose wick cluster triggered detection).
+- **`y_range`** — `ATR × threshold_factor` (half-width of the zone, in price units).
+
+So the zone is always **symmetric** around its anchor price, with a total width of `2 × ATR × threshold_factor`.
+
+**Example** — support zone on XAUUSD H1, ATR = 4.0, threshold = 0.5:
+```
+anchor_price = 2,310.00 (bar low)
+y_range      = 4.0 × 0.5 = 2.0
+
+z_low  = 2,310.00 − 2.0 = 2,308.00
+z_high = 2,310.00 + 2.0 = 2,312.00
+```
+
+These boundaries are used directly in accuracy evaluation:
+- **Support** — a long entry limit order sits at `z_high`. A bar that straddles `z_high` (`high ≥ z_high` and `low ≤ z_high`) fills the order. A bar whose `low < z_low` on the same fill bar counts as an immediate break.
+- **Resistance** — a short entry limit order sits at `z_low`. A bar that straddles `z_low` (`low ≤ z_low` and `high ≥ z_low`) fills the order. A bar whose `high > z_high` on the same fill bar counts as an immediate break.
+
+### 5. Tiebreaker When Both S and R Are Detected
 It is possible for the same bar to simultaneously satisfy both support and resistance conditions (e.g., a doji-like bar with lows and highs both hugging the same tight zone). In this case the winner is decided by a three-tier priority:
 
 1. **Higher touch count wins** — whichever type has more bars touching the zone is reported.
