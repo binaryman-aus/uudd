@@ -15,16 +15,17 @@ def calculate_atr(df, period=14):
     tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
     return tr.rolling(window=period).mean()
 
-def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_period=14, wick_percentage=0.4, debug=False):
+def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_period=14, wick_percentage=0.4, min_wick_bars=2, debug=False):
     """
     Detects Support and Resistance levels based on Kevin Yu's theory.
-    
+
     ohlcv_data: List of dicts (already sorted by time ascending)
     n_bars: Lookback period for detection
     threshold_factor: Multiplier for ATR to define 'narrow range'
     min_bars: Minimum number of bars that must fall within the range
     atr_period: Period for ATR calculation
     wick_percentage: Minimum wick size as percentage of total bar range for bars touching the level
+    min_wick_bars: Minimum number of in-range bars that must satisfy the wick requirement
     debug: If True, returns detailed calculation data
     """
     if not ohlcv_data or len(ohlcv_data) < max(n_bars, atr_period):
@@ -117,7 +118,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
             wick_ratios = upper_wicks / total_ranges
             # Relaxed: At least 50% of bars touching the level must have the required wick
             wick_met_count = (wick_ratios >= wick_percentage).sum()
-            wick_valid = (wick_met_count >= len(in_range_bars) * 0.5)
+            wick_valid = (wick_met_count >= min_wick_bars)
             avg_wick_ratio = float(wick_ratios.mean())
 
         if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
@@ -171,7 +172,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
             wick_ratios = lower_wicks / total_ranges
             # Relaxed: At least 50% of bars touching the level must have the required wick
             wick_met_count = (wick_ratios >= wick_percentage).sum()
-            wick_valid = (wick_met_count >= len(in_range_bars) * 0.5)
+            wick_valid = (wick_met_count >= min_wick_bars)
             avg_wick_ratio = float(wick_ratios.mean())
 
         if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
@@ -279,6 +280,7 @@ def load_config(config_file="config.json"):
         "atr_period": 21,
         "threshold": 0.5,
         "wick": 0.1,
+        "min_wick_bars": 2,
     }
     if os.path.exists(config_file):
         try:
@@ -304,6 +306,7 @@ if __name__ == "__main__":
     parser.add_argument("--min_bars", type=int, default=config["min_bars"], help="Minimum bars touching level")
     parser.add_argument("--atr_period", type=int, default=config["atr_period"], help="ATR period")
     parser.add_argument("--wick", type=float, default=config["wick"], help="Minimum wick percentage")
+    parser.add_argument("--min_wick_bars", type=int, default=config["min_wick_bars"], help="Minimum number of in-range bars that must satisfy the wick requirement")
     parser.add_argument("--debug_time", type=str, help="Datetime for debug mode (ISO format)")
     
     args = parser.parse_args()
@@ -349,23 +352,25 @@ if __name__ == "__main__":
             debug_ohlcv = df.iloc[:idx+1].to_dict('records')
             
             result = detect_sr(
-                debug_ohlcv, 
-                n_bars=args.nbars, 
-                threshold_factor=args.threshold, 
+                debug_ohlcv,
+                n_bars=args.nbars,
+                threshold_factor=args.threshold,
                 min_bars=args.min_bars,
                 atr_period=args.atr_period,
                 wick_percentage=args.wick,
+                min_wick_bars=args.min_wick_bars,
                 debug=True
             )
         else:
             # Normal mode
             result = detect_sr(
-                ohlcv_data, 
-                n_bars=args.nbars, 
-                threshold_factor=args.threshold, 
+                ohlcv_data,
+                n_bars=args.nbars,
+                threshold_factor=args.threshold,
                 min_bars=args.min_bars,
                 atr_period=args.atr_period,
-                wick_percentage=args.wick
+                wick_percentage=args.wick,
+                min_wick_bars=args.min_wick_bars
             )
         print(json.dumps(result, indent=4))
         

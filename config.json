@@ -4,5 +4,6 @@
     "atr_period": 200,
     "threshold": 0.5,
     "wick": 0.1,
+    "min_wick_bars": 2,
     "window": 200
 }

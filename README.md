@@ -74,7 +74,7 @@ lower_wick  = min(Open, Close) − Low
 wick_ratio  = lower_wick / (High − Low)
 ```
 
-A bar qualifies if `wick_ratio ≥ --wick` (default `0.1`, i.e. the rejection wick must be at least **10% of the bar's total High-to-Low range**). At least half of the in-range bars must qualify for the zone to pass this rule.
+A bar qualifies if `wick_ratio ≥ --wick` (default `0.1`, i.e. the rejection wick must be at least **10% of the bar's total High-to-Low range**). At least `--min_wick_bars` (default `2`) of the in-range bars must qualify for the zone to pass this rule.
 
 #### E. Drift Constraint (The "Miss" Rule)
 - To ensure a tight cluster, no more than **one bar** in the window is allowed to "drift" away from the level:
@@ -181,6 +181,7 @@ The system uses a `config.json` file for persistent settings. Any parameter can 
 | **ATR Period** | `--atr_period` | `"atr_period"` | 200 | Window for volatility calculation. |
 | **Threshold** | `--threshold` | `"threshold"` | 0.5 | Multiplier for ATR to set zone width. |
 | **Min Wick** | `--wick` | `"wick"` | 0.1 | Min rejection wick size (as % of bar). |
+| **Min Wick Bars** | `--min_wick_bars` | `"min_wick_bars"` | 2 | Min number of in-range bars that must satisfy the wick requirement. |
 | **Window Size**| `--window` | `"window"` | 200 | Total bars shown in the sliding window. |
 
 ### Current `config.json`:
@@ -191,6 +192,7 @@ The system uses a `config.json` file for persistent settings. Any parameter can 
     "atr_period": 200,
     "threshold": 0.5,
     "wick": 0.1,
+    "min_wick_bars": 2,
     "window": 200
 }
 ```
