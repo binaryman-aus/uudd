@@ -554,6 +554,7 @@ def run_pipeline():
             threshold = config.get("threshold", 0.5)
             atr_period = config.get("atr_period", 21)
             wick = config.get("wick", 0.1)
+            min_wick_bars = config.get("min_wick_bars", 2)
             
             symbol_results = []
             
@@ -568,7 +569,8 @@ def run_pipeline():
                         threshold_factor=threshold, 
                         min_bars=min_bars,
                         atr_period=atr_period,
-                        wick_percentage=wick
+                        wick_percentage=wick,
+                        min_wick_bars=min_wick_bars
                     )
                     if sr_result['result'] != 'nil':
                         sr_result['detected_at'] = int(window_data[-1]['time'].timestamp())

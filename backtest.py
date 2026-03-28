@@ -5,7 +5,7 @@ from sr_detect import detect_sr, load_config
 from jinja2 import Template
 from datetime import datetime
 
-def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, min_bars=5, atr_period=14, wick_percentage=0.4):
+def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, min_bars=5, atr_period=14, wick_percentage=0.4, min_wick_bars=2):
     """
     Runs a sliding window backtest on OHLCV data.
     """
@@ -37,11 +37,12 @@ def run_backtest(input_file, window_size=200, nbars=20, threshold=0.3, min_bars=
         # Call detection logic with custom parameters
         sr_result = detect_sr(
             window_data, 
-            n_bars=nbars, 
-            threshold_factor=threshold, 
+            n_bars=nbars,
+            threshold_factor=threshold,
             min_bars=min_bars,
             atr_period=atr_period,
-            wick_percentage=wick_percentage
+            wick_percentage=wick_percentage,
+            min_wick_bars=min_wick_bars
         )
         
         if sr_result['result'] != 'nil':
@@ -266,6 +267,7 @@ if __name__ == "__main__":
     parser.add_argument("--min_bars", type=int, default=config["min_bars"], help="Minimum bars touching level")
     parser.add_argument("--atr_period", type=int, default=config["atr_period"], help="ATR window size")
     parser.add_argument("--wick", type=float, default=config["wick"], help="Minimum wick percentage")
+    parser.add_argument("--min_wick_bars", type=int, default=config.get("min_wick_bars", 2), help="Minimum number of in-range bars that must satisfy the wick requirement")
     parser.add_argument("--input", type=str, help="Path to OHLCV JSON file")
     
     args = parser.parse_args()
@@ -295,7 +297,8 @@ if __name__ == "__main__":
         threshold=args.threshold, 
         min_bars=args.min_bars,
         atr_period=args.atr_period,
-        wick_percentage=args.wick
+        wick_percentage=args.wick,
+        min_wick_bars=args.min_wick_bars
     )
     if backtest_results:
         # Pass all args and full data to report generator
