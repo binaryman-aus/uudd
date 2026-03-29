@@ -55,35 +55,74 @@ def evaluate_zone_accuracy(zone, df):
     zone_type   = zone['result']
     z_low       = zone['price_range']['low']
     z_high      = zone['price_range']['high']
+    z_range     = z_high - z_low if z_high > z_low else 1
 
     bar_ts = df['time'].apply(lambda t: int(t.timestamp()))
     future = df[bar_ts > detected_at]
 
-    for _, bar in future.iterrows():
-        if zone_type == 'support':
-            if bar['low'] > z_high:
-                continue
-            elif bar['high'] < z_high:
-                if bar['low'] < z_low:
-                    return {'outcome': 'break', 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'gap'}
-                else:
-                    continue  # gapped into zone but not through — still alive
-            else:  # straddles z_high: limit fills
-                outcome = 'break' if bar['low'] < z_low else 'bounce'
-                return {'outcome': outcome, 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'valid'}
-        else:  # resistance
-            if bar['high'] < z_low:
-                continue
-            elif bar['low'] > z_low:
-                if bar['high'] > z_high:
-                    return {'outcome': 'break', 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'gap'}
-                else:
-                    continue  # gapped into zone but not through — still alive
-            else:  # straddles z_low: limit fills
-                outcome = 'break' if bar['high'] > z_high else 'bounce'
-                return {'outcome': outcome, 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'valid'}
+    filled     = False
+    p1_outcome = 'untested'
+    p1_time    = None
+    p1_entry   = None
+    p2_outcome = 'untested'
+    p2_mag     = None
 
-    return {'outcome': 'untested', 'test_bar_time': None}
+    for _, bar in future.iterrows():
+        if not filled:
+            if zone_type == 'support':
+                if bar['low'] > z_high:
+                    continue
+                elif bar['high'] < z_high:
+                    if bar['low'] < z_low:            # gapped through entire zone
+                        p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
+                        p2_outcome = 'broken'; p2_mag = 0.0
+                        break
+                    else:
+                        continue                       # gapped into zone only — still alive
+                else:                                  # straddles z_high: limit fills
+                    p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
+                    if bar['low'] < z_low:             # SL hit on fill bar
+                        p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
+                        break
+                    p1_outcome = 'bounce'; filled = True; p2_outcome = 'active'; p2_mag = 0.0
+            else:                                      # resistance
+                if bar['high'] < z_low:
+                    continue
+                elif bar['low'] > z_low:
+                    if bar['high'] > z_high:           # gapped through entire zone
+                        p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
+                        p2_outcome = 'broken'; p2_mag = 0.0
+                        break
+                    else:
+                        continue                       # gapped into zone only — still alive
+                else:                                  # straddles z_low: limit fills
+                    p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
+                    if bar['high'] > z_high:           # SL hit on fill bar
+                        p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
+                        break
+                    p1_outcome = 'bounce'; filled = True; p2_outcome = 'active'; p2_mag = 0.0
+
+        if filled:                                     # Phase 2: track excursion and SL
+            if zone_type == 'support':
+                if bar['high'] > z_high:
+                    p2_mag = max(p2_mag, (bar['high'] - z_high) / z_range)
+                if bar['low'] < z_low:
+                    p2_outcome = 'broken'; break
+            else:
+                if bar['low'] < z_low:
+                    p2_mag = max(p2_mag, (z_low - bar['low']) / z_range)
+                if bar['high'] > z_high:
+                    p2_outcome = 'broken'; break
+
+    return {
+        'outcome': p1_outcome,
+        'test_bar_time': p1_time,
+        'entry': p1_entry,
+        'phase2': {
+            'outcome': p2_outcome,
+            'max_magnitude': round(p2_mag, 2) if p2_mag is not None else None
+        }
+    }
 
 
 def generate_dashboard(all_results, params, output_file="dashboard.html"):
@@ -432,31 +471,34 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const summary = data.accuracy_summary || {};
                 const zones   = (data.results || []).filter(z => z.result !== 'nil');
 
-                const hr = summary.hit_rate !== null && summary.hit_rate !== undefined
-                    ? `${summary.hit_rate}% hit rate (${summary.bounces}\u2191 / ${summary.breaks}\u2717)`
-                    : 'No tests yet';
                 document.getElementById('fs-accuracy-summary').innerHTML =
-                    `${hr}<br><span style="font-weight:normal;">&#x1F7E2; ${summary.bounces || 0} bounce &nbsp; &#x1F534; ${summary.breaks || 0} break &nbsp; &#x26AA; ${summary.untested || 0} untested</span>`;
+                    `&#x1F7E2; ${summary.active || 0} active &nbsp; &#x1F534; ${summary.broken || 0} broken &nbsp; &#x26AA; ${summary.untested || 0} untested`;
 
-                const STATUS = { bounce: '&#x1F7E2;', break: '&#x1F534;', untested: '&#x26AA;' };
-                const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const P2_ICON = { active: '&#x1F7E2;', broken: '&#x1F534;', untested: '&#x26AA;' };
+                const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 function fmtTs(ts) {
                     const d = new Date(ts * 1000);
                     const p = n => String(n).padStart(2, '0');
                     return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
                 }
                 document.getElementById('fs-accuracy-list').innerHTML = [...zones].reverse().map(z => {
-                    const acc      = z.accuracy || { outcome: 'untested' };
+                    const acc      = z.accuracy || {};
+                    const p2       = acc.phase2 || { outcome: 'untested', max_magnitude: null };
                     const label    = z.result === 'support' ? '\u25B2 S' : '\u25BC R';
                     const price    = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
-                    const icon     = STATUS[acc.outcome] || '\u26AA';
-                    const gap      = acc.entry === 'gap' ? ' <span style="color:#bbb;font-size:0.85em;">gap</span>' : '';
+                    const icon     = P2_ICON[p2.outcome] || '&#x26AA;';
+                    const mag      = p2.max_magnitude !== null && p2.max_magnitude !== undefined
+                                     ? `<span style="color:#555;margin-left:6px;">max ${p2.max_magnitude}x</span>` : '';
+                    const broken   = p2.outcome === 'broken'
+                                     ? ' <span style="color:#c00;font-weight:bold;">\u2717</span>' : '';
+                    const gap      = acc.entry === 'gap'
+                                     ? ' <span style="color:#bbb;font-size:0.85em;">gap</span>' : '';
                     const detected = fmtTs(z.detected_at);
                     const startTs  = Math.floor(new Date(z.start_time).getTime() / 1000);
                     const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
                     return `<div class="acc-zone-row" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}" style="padding:4px 2px;border-bottom:1px solid #eee;cursor:default;">
-                        ${icon} ${label} <span style="font-family:monospace;">${price}</span>${gap}
-                        <span style="color:#999;margin-left:4px;">${detected}</span>
+                        ${icon} ${label} <span style="font-family:monospace;">${price}</span>${gap}${broken}${mag}
+                        <div style="color:#aaa;font-size:0.9em;padding-left:18px;">${detected}</div>
                     </div>`;
                 }).join('');
             }
@@ -571,19 +613,17 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         else:
             formatted_all_data[symbol] = {"candles": [], "ema9": [], "ema21": []}
 
-        acc_list     = [z.get('accuracy', {}) for z in symbol_results]
-        bounces      = sum(1 for a in acc_list if a.get('outcome') == 'bounce')
-        breaks       = sum(1 for a in acc_list if a.get('outcome') == 'break')
-        untested     = sum(1 for a in acc_list if a.get('outcome') == 'untested')
-        total_tested = bounces + breaks
+        p2_list  = [z.get('accuracy', {}).get('phase2', {}) for z in symbol_results]
+        active   = sum(1 for p in p2_list if p.get('outcome') == 'active')
+        broken   = sum(1 for p in p2_list if p.get('outcome') == 'broken')
+        untested = sum(1 for p in p2_list if p.get('outcome') == 'untested')
         formatted_all_results[symbol] = {
             "results": symbol_results,
             "last_bar_time": chart_data[-1]['time'] if chart_data else 0,
             "accuracy_summary": {
-                "bounces": bounces,
-                "breaks": breaks,
-                "untested": untested,
-                "hit_rate": round(bounces / total_tested * 100, 1) if total_tested else None
+                "active": active,
+                "broken": broken,
+                "untested": untested
             }
         }
 
