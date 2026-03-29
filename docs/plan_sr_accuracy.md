@@ -1,148 +1,52 @@
 # Plan: S/R Accuracy Evaluation
 
 ## Context
-S/R zones are detected historically via a sliding window. We have 500 bars of data, with zones detected at various points. For any zone detected at bar N, bars N+1 onward serve as a forward test: did price actually respect (bounce) or violate (break) the zone? This plan adds Python-side accuracy evaluation in `run_pipeline()` and surfaces the results in the fullscreen chart view as a collapsible right-side stats panel.
+S/R zones are detected historically via a sliding window across 500 bars of data. For any zone detected at bar N, bars N+1 onward serve as a forward test: did price actually respect (bounce) or violate (break) the zone?
 
-## Critical File
-- `C:\Users\avpei\UUDD\dashboard.py` — all changes are here (pipeline + template)
+This plan adds accuracy evaluation to the pipeline and surfaces the results in the fullscreen chart view as a right-side stats panel.
 
-## Existing Data Structures (reused as-is)
-Each zone in `all_results[symbol]["results"]` already has:
-- `result`: `"support"` | `"resistance"`
-- `price_range.low / .high`: zone bounds
-- `detected_at`: unix timestamp (last bar of detection window)
-- `start_time / end_time`: zone active span
+**Critical file:** `dashboard.py` — all changes are here (pipeline + template)
 
-The OHLCV dataframe `df` (500 bars, pandas, `df['time']` is tz-aware UTC) is already in scope inside `run_pipeline()` at evaluation time.
+## Zone Data Available
+Each zone already has: `result` (support/resistance), `price_range.low` (`z_low`) / `price_range.high` (`z_high`), `detected_at` (timestamp of last detection bar). The full OHLCV dataframe (500 bars) is available at evaluation time.
 
 ---
 
-## Phase 1 — First-Touch Evaluation (implement now)
+## Entry & Break Logic (shared across phases)
 
-Scan forward bars after `detected_at`. Simulate real-world entry: the user reads the last closed bar and places a limit order at the zone boundary for the next bar.
+The user places a **limit order at the zone boundary** for the next bar after detection. Entry requires the bar to straddle the boundary — if price jumps past without touching it, no fill occurs.
 
-**Support** (limit order at `z_high`):
-- `bar['low'] > z_high` → price above zone, no interaction this bar, continue scanning
-- `bar['high'] >= z_high AND bar['low'] <= z_high` → bar straddles `z_high`, limit order fills at `z_high`
-  - `bar['low'] < z_low` → stop hit same bar → **break**
-  - otherwise → **bounce**
-- `bar['high'] < z_high` → gap-down past `z_high`, order cannot fill → **break** (no entry)
+### Support zone — limit buy at `z_high` (top of zone)
 
-**Resistance** (limit order at `z_low`):
-- `bar['high'] < z_low` → price below zone, no interaction this bar, continue scanning
-- `bar['low'] <= z_low AND bar['high'] >= z_low` → bar straddles `z_low`, limit order fills at `z_low`
-  - `bar['high'] > z_high` → stop hit same bar → **break**
-  - otherwise → **bounce**
-- `bar['low'] > z_low` → gap-up past `z_low`, order cannot fill → **break** (no entry)
+| Bar behaviour | Outcome |
+|---|---|
+| Low stays above `z_high` | No interaction — skip bar |
+| Bar straddles `z_high` (low ≤ z_high ≤ high) | **Limit fills at z_high** → if low < z_low same bar: **break**; else **bounce** |
+| Bar gaps through entire zone (high < z_high AND low < z_low) | **Break** — no fill, zone violated |
+| Bar gaps into zone but not through (high < z_high AND low ≥ z_low) | No fill — zone still alive, continue scanning |
 
-If no qualifying bar found in remaining bars → `untested`.
+### Resistance zone — limit sell at `z_low` (bottom of zone)
 
-### Python: `evaluate_zone_accuracy(zone, df)` function
+| Bar behaviour | Outcome |
+|---|---|
+| High stays below `z_low` | No interaction — skip bar |
+| Bar straddles `z_low` (low ≤ z_low ≤ high) | **Limit fills at z_low** → if high > z_high same bar: **break**; else **bounce** |
+| Bar gaps through entire zone (low > z_low AND high > z_high) | **Break** — no fill, zone violated |
+| Bar gaps into zone but not through (low > z_low AND high ≤ z_high) | No fill — zone still alive, continue scanning |
 
-```python
-def evaluate_zone_accuracy(zone, df):
-    """
-    First-touch evaluation with realistic entry simulation.
-    Entry requires bar to straddle zone boundary (limit order fillable at boundary price).
-    Gap through zone without straddling = break with no valid entry.
-    Break condition: support → low < z_low; resistance → high > z_high.
-    """
-    detected_at = zone['detected_at']
-    zone_type   = zone['result']
-    z_low  = zone['price_range']['low']
-    z_high = zone['price_range']['high']
+If no qualifying bar is found in remaining bars → **untested**.
 
-    future = df[df['time'] > pd.Timestamp(detected_at, unit='s', tz='UTC')]
+---
 
-    for _, bar in future.iterrows():
-        if zone_type == 'resistance':
-            if bar['high'] < z_low:
-                continue                              # no interaction, price below zone
-            elif bar['low'] > z_low:
-                # gap-up: price jumped above z_low, limit at z_low cannot fill
-                return {'outcome': 'break', 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'gap'}
-            else:  # high >= z_low AND low <= z_low: limit fills at z_low
-                outcome = 'break' if bar['high'] > z_high else 'bounce'
-                return {'outcome': outcome, 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'valid'}
-        else:  # support
-            if bar['low'] > z_high:
-                continue                              # no interaction, price above zone
-            elif bar['high'] < z_high:
-                # gap-down: price jumped below z_high, limit at z_high cannot fill
-                return {'outcome': 'break', 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'gap'}
-            else:  # high >= z_high AND low <= z_high: limit fills at z_high
-                outcome = 'break' if bar['low'] < z_low else 'bounce'
-                return {'outcome': outcome, 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'valid'}
+## Phase 1 — First-Touch Evaluation *(implement now)*
 
-    return {'outcome': 'untested', 'test_bar_time': None}
-```
+The simplest question: what happened the **first time** price came back to the zone after detection?
 
-### Pipeline: call it for every zone in `run_pipeline()`
-After zone detection loop, before `all_results[symbol]` is stored:
-```python
-for zone in symbol_results:
-    zone['accuracy'] = evaluate_zone_accuracy(zone, df)
-```
+Scan forward bars using the entry logic above. Stop at the first result (bounce, break, or end of data).
 
-### JSON export: include accuracy in `formatted_all_results`
-```python
-zone_entry['accuracy'] = zone.get('accuracy', {
-    'outcome': 'untested', 'test_bar_time': None
-})
-```
+Each zone gets one of three outcomes: `bounce` / `break` / `untested`.
 
-Per-symbol summary:
-```python
-acc_list   = [z['accuracy'] for z in zones]
-bounces    = sum(1 for a in acc_list if a['outcome'] == 'bounce')
-breaks     = sum(1 for a in acc_list if a['outcome'] == 'break')
-untested   = sum(1 for a in acc_list if a['outcome'] == 'untested')
-total_tested = bounces + breaks
-formatted_all_results[symbol]['accuracy_summary'] = {
-    'bounces': bounces, 'breaks': breaks, 'untested': untested,
-    'hit_rate': round(bounces / total_tested * 100, 1) if total_tested else None
-}
-```
-
-### Fullscreen UI: right-side accuracy panel
-Add inside `#fs-overlay` as a sibling to `#fs-chart-container`:
-
-```html
-<div id="fs-accuracy-panel" style="width:230px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
-    <div id="fs-accuracy-summary" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;"></div>
-    <div id="fs-accuracy-list"></div>
-</div>
-```
-
-JavaScript — populate in `openFullscreen()`:
-```js
-function renderAccuracyPanel(symbol) {
-    const data    = allResults[symbol];
-    const summary = data.accuracy_summary;
-    const zones   = (data.results || []).filter(z => z.result !== 'nil');
-
-    // Summary
-    const hr = summary.hit_rate !== null
-        ? `<b>${summary.hit_rate}%</b> hit rate (${summary.bounces}↑ / ${summary.breaks}✗)`
-        : 'No tests yet';
-    document.getElementById('fs-accuracy-summary').innerHTML =
-        `${hr}<br>🟢 ${summary.bounces} bounce &nbsp; 🔴 ${summary.breaks} break &nbsp; ⚪ ${summary.untested} untested`;
-
-    // Per-zone list — most recent first
-    const STATUS = { bounce: '🟢', break: '🔴', untested: '⚪' };
-    document.getElementById('fs-accuracy-list').innerHTML = [...zones].reverse().map(z => {
-        const acc   = z.accuracy;
-        const label = z.result === 'support' ? '▲ S' : '▼ R';
-        const price = `${z.price_range.low.toFixed(2)}–${z.price_range.high.toFixed(2)}`;
-        const icon  = STATUS[acc.outcome] || '⚪';
-        return `<div style="padding:4px 0;border-bottom:1px solid #eee">
-            ${icon} ${label} ${price}
-        </div>`;
-    }).join('');
-}
-```
-
-Call `renderAccuracyPanel(symbol)` in `openFullscreen()` after building the chart.
+Per-symbol summary: bounce count, break count, untested count, hit rate (bounces ÷ tested).
 
 ### Result Presentation
 
@@ -160,173 +64,98 @@ Right-side panel (230px) in fullscreen view only:
 
 One badge per zone. No magnitude, no test history.
 
-Hovering over a zone box on the chart highlights the corresponding sidebar entry (yellow background) via `chart.subscribeCrosshairMove` — checking if cursor price falls within `price_range.low–price_range.high`. Clears when cursor leaves the zone.
+Hovering over a zone box on the chart highlights the corresponding sidebar entry (yellow background) — checking if cursor price falls within `z_low–z_high`. Clears when cursor leaves the zone.
 
 ---
 
-## Phase 2 — Multi-Touch State Machine (future enhancement)
+## Phase 2 — Single-Trade Simulation *(future enhancement)*
 
-A zone can bounce multiple times before eventually breaking. Track ALL distinct tests via a state machine:
-`AWAY → IN_ZONE → AWAY → IN_ZONE → ...`
-Each AWAY→IN_ZONE transition = one test. A break terminates tracking.
+Phase 1 answers "did it bounce or break on first touch?" Phase 2 answers "if I had held the trade, how far could it have gone — and did it eventually stop out?"
 
-"Away" is determined by close: resistance → `close < z_low`; support → `close > z_high`.
-"In zone" trigger (entry): resistance → `low <= z_low AND high >= z_low`; support → `high >= z_high AND low <= z_high` (bar straddles boundary = limit order fillable).
-Gap through boundary without straddling = break with no valid entry.
-Break condition: resistance → `high > z_high`; support → `low < z_low`.
+### How it works
 
-Bounce magnitude is measured relative to **zone range** (`z_high - z_low`), giving a dimensionless ratio:
-- Resistance: `magnitude = (z_low - min_excursion) / (z_high - z_low)`
-- Support: `magnitude = (max_excursion - z_high) / (z_high - z_low)`
+1. **Entry** — same logic as Phase 1. If no fill is obtained, outcome is `untested`.
+2. **Hold** — once filled, hold the position with SL fixed at the zone's far boundary:
+   - Support (long): SL at `z_low`
+   - Resistance (short): SL at `z_high`
+3. **Track** — from the fill bar onward, record the maximum favorable excursion:
+   - Support: highest `high` reached above `z_high`
+   - Resistance: lowest `low` reached below `z_low`
+4. **Terminate** — when SL is hit (`low < z_low` for support, `high > z_high` for resistance) or data ends
 
-A magnitude of `1.0` means price moved one full zone-width away before returning.
+### Magnitude
 
-### Python: `evaluate_zone_accuracy(zone, df)` — upgraded
+Max favorable excursion expressed as a multiple of zone width (`z_high − z_low`):
 
-```python
-def evaluate_zone_accuracy(zone, df):
-    """
-    Multi-touch state machine with bounce magnitude normalised by zone range.
-    State: AWAY <-> IN_ZONE. Each AWAY->IN_ZONE = one test.
-    Entry requires bar to straddle zone boundary (same rule as Phase 1).
-    Break condition: support → low < z_low; resistance → high > z_high.
-    Gap through zone (no straddle) counts as break with no valid entry.
-    Bounce magnitude = price excursion / zone range (dimensionless ratio).
-    """
-    detected_at = zone['detected_at']
-    zone_type   = zone['result']
-    z_low  = zone['price_range']['low']
-    z_high = zone['price_range']['high']
-    z_range = z_high - z_low
+- Support: `(max high above z_high − z_high) ÷ zone width`
+- Resistance: `(z_low − min low below z_low) ÷ zone width`
 
-    future = df[df['time'] > pd.Timestamp(detected_at, unit='s', tz='UTC')]
-    tests      = []
-    in_contact = True   # detection bar already touching zone
-    excursion  = None   # track extreme price while AWAY
+A magnitude of `1.0x` means price moved one full zone-width in the favorable direction. Higher = more potential reward.
 
-    for _, bar in future.iterrows():
-        if zone_type == 'resistance':
-            straddles = bar['high'] >= z_low and bar['low'] <= z_low
-            gap_up    = bar['low'] > z_low             # gapped above z_low, no fill
-            if in_contact:
-                if bar['close'] < z_low:               # left the zone
-                    in_contact = False
-                    excursion  = bar['low']
-            else:
-                excursion = min(excursion, bar['low']) if excursion is not None else bar['low']
-                if gap_up or straddles:
-                    magnitude = round((z_low - excursion) / z_range, 3) if excursion is not None else 0
-                    if gap_up or bar['high'] > z_high:
-                        tests.append({'outcome': 'break',  'bar_time': int(bar['time'].timestamp()), 'bounce_magnitude': magnitude, 'entry': 'gap' if gap_up else 'valid'})
-                        break
-                    else:
-                        tests.append({'outcome': 'bounce', 'bar_time': int(bar['time'].timestamp()), 'bounce_magnitude': magnitude, 'entry': 'valid'})
-                        in_contact = True
-                        excursion  = None
-        else:  # support
-            straddles = bar['low'] <= z_high and bar['high'] >= z_high
-            gap_down  = bar['high'] < z_high           # gapped below z_high, no fill
-            if in_contact:
-                if bar['close'] > z_high:              # left the zone
-                    in_contact = False
-                    excursion  = bar['high']
-            else:
-                excursion = max(excursion, bar['high']) if excursion is not None else bar['high']
-                if gap_down or straddles:
-                    magnitude = round((excursion - z_high) / z_range, 3) if excursion is not None else 0
-                    if gap_down or bar['low'] < z_low:
-                        tests.append({'outcome': 'break',  'bar_time': int(bar['time'].timestamp()), 'bounce_magnitude': magnitude, 'entry': 'gap' if gap_down else 'valid'})
-                        break
-                    else:
-                        tests.append({'outcome': 'bounce', 'bar_time': int(bar['time'].timestamp()), 'bounce_magnitude': magnitude, 'entry': 'valid'})
-                        in_contact = True
-                        excursion  = None
+For scenario 3 (SL hit), magnitude is the best excursion reached *before* the stop was triggered.
 
-    bounce_count = sum(1 for t in tests if t['outcome'] == 'bounce')
-    break_count  = sum(1 for t in tests if t['outcome'] == 'break')
-    bounce_magnitudes = [t['bounce_magnitude'] for t in tests if t['outcome'] == 'bounce' and t['bounce_magnitude'] > 0]
+### Zone outcomes
 
-    if not tests:                            final_status = 'untested'
-    elif tests[-1]['outcome'] == 'break':    final_status = 'broken'
-    else:                                    final_status = 'active'
-
-    return {
-        'tests': tests,
-        'bounce_count': bounce_count,
-        'break_count': break_count,
-        'final_status': final_status,
-        'avg_bounce_magnitude': round(sum(bounce_magnitudes) / len(bounce_magnitudes), 3) if bounce_magnitudes else None
-    }
-```
-
-**Example**: resistance zone with z_range=10. Price drops 15pts away (mag=1.5x) then 8pts (mag=0.8x) then breaks:
-`tests=[{bounce, mag=1.5}, {bounce, mag=0.8}, {break, mag=0}]`, `avg_bounce_magnitude=1.15`, `final_status='broken'`
-
-UI upgrade: replace badge-only display with test history sequence per zone:
-`B(1.5x) B(0.8x) X` — and summary switches from `hit_rate` to `survival_rate`.
+| # | Outcome | Description |
+|---|---|---|
+| 1 | **Untested** | No fill obtained (price never straddled boundary) |
+| 2 | **Active** | Filled, SL not yet hit — show max magnitude reached so far |
+| 3 | **Broken** | Filled, SL eventually hit — show max magnitude before stop |
 
 ### Result Presentation
 
 Same right-side panel, upgraded:
 
 ```
-85.0% survival (17↑ / 3✗)
 🟢 5 active   🔴 3 broken   ⚪ 2 untested
 
-🟢 ▼ R  1.2340–1.2360
-     B(1.5x) B(0.8x)   (2↑ 0✗)
-🔴 ▲ S  1.2280–1.2300
-     B(2.1x) X          (1↑ 1✗)
-⚪ ▼ R  1.2410–1.2430
-     no tests
+🟢 ▼ R  1.2340–1.2360   max 2.3x
+🔴 ▲ S  1.2280–1.2300   max 1.1x  ✗
+⚪ ▼ R  1.2410–1.2430   —
 ...
 ```
 
-Magnitude suffix `x` = multiples of zone range. Summary metric changes from hit rate to survival rate.
+`max Nx` = max favorable excursion as multiple of zone width. `✗` = SL was eventually hit.
 
-Hover behaviour carried forward from Phase 1. Additionally, the highlighted sidebar entry expands to show the full test sequence inline when the cursor is inside the zone.
+Hover behaviour carried forward from Phase 1. The highlighted sidebar entry expands to show entry price, max excursion, and SL hit time (if applicable) when cursor is inside the zone.
 
 ---
 
-## Phase 3 — Advanced: Zone strength score (future enhancement)
+## Phase 3 — Zone Strength Score *(future enhancement)*
+
 Composite score per zone combining:
-- Touch count before detection (from `prev_matches` length — already available)
-- Average bounce magnitude in zone-range units
+- Touch count before detection (historical `prev_matches` — already available)
+- Max favorable excursion magnitude (from Phase 2)
 - Time-to-first-test (fast retest = high-demand zone)
-- Multi-test survival rate
+- Whether the position was ultimately stopped out
 
 ### Result Presentation
 
 ```
-85.0% survival (17↑ / 3✗)
 🟢 5 active   🔴 3 broken   ⚪ 2 untested
 
-⭐⭐⭐⭐⭐ 🟢 ▼ R  1.2340–1.2360   score: 92
-          B(1.5x) B(0.8x)   (2↑ 0✗)
-⭐⭐⭐ 🔴 ▲ S  1.2280–1.2300   score: 61
-          B(2.1x) X          (1↑ 1✗)
-⭐⭐ ⚪ ▼ R  1.2410–1.2430   score: 34
-          no tests
+⭐⭐⭐⭐⭐ 🟢 ▼ R  1.2340–1.2360   score: 92   max 2.3x
+⭐⭐⭐    🔴 ▲ S  1.2280–1.2300   score: 61   max 1.1x  ✗
+⭐⭐      ⚪ ▼ R  1.2410–1.2430   score: 34   —
 ...
 ```
 
 Zones sorted by score descending. The highest-scoring active zone is also highlighted in the grid chart header.
 
-Hover behaviour carried forward from Phase 2. The highlighted entry additionally shows the composite score breakdown (touch count, avg magnitude, time-to-first-test, survival rate) as a tooltip-style expansion.
+Hover behaviour carried forward from Phase 2. The highlighted entry additionally shows the score breakdown (touch count, max magnitude, time-to-first-test, broken/active) as a tooltip-style expansion.
 
 ---
 
-## Implementation Order
-1. Add `evaluate_zone_accuracy()` function
-2. Call it in the zone-building loop inside `run_pipeline()`
-3. Include `accuracy` and `accuracy_summary` in `formatted_all_results`
-4. Add `#fs-accuracy-panel` HTML to fullscreen overlay
+## Implementation Order (Phase 1)
+1. Add `evaluate_zone_accuracy(zone, df)` function using Phase 1 entry logic
+2. Call it for every zone in the zone-building loop inside `run_pipeline()`
+3. Include `accuracy` per zone and `accuracy_summary` per symbol in `formatted_all_results`
+4. Add `#fs-accuracy-panel` HTML to fullscreen overlay (right of chart, 230px)
 5. Add `renderAccuracyPanel()` JS and call it from `openFullscreen()`
-6. Run `python dashboard.py` to verify
 
-## Verification
+## Verification (Phase 1)
 1. `python dashboard.py` — runs without error
 2. Open `dashboard.html`, click any chart to fullscreen
-3. Right-side panel shows: hit rate summary + per-zone bounce/break/untested badges
-4. Zones detected at the last bar show "untested" (no future bars)
+3. Right panel shows hit rate summary + per-zone bounce/break/untested badges
+4. Zones detected at the last bar show "untested" (no future bars to test against)
 5. Confirm `pipeline_cache.json` contains `accuracy` keys per zone
