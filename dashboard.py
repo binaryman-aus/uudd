@@ -264,7 +264,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             </div>
             <div style="flex:1;display:flex;min-height:0;">
                 <div id="fs-chart-container" style="flex:1;position:relative;min-height:0;"></div>
-                <div id="fs-accuracy-panel" style="width:230px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
+                <div id="fs-accuracy-panel" style="width:300px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
                     <div id="fs-accuracy-summary" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;font-weight:bold;"></div>
                     <div id="fs-accuracy-list"></div>
                 </div>
@@ -439,14 +439,24 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     `${hr}<br><span style="font-weight:normal;">&#x1F7E2; ${summary.bounces || 0} bounce &nbsp; &#x1F534; ${summary.breaks || 0} break &nbsp; &#x26AA; ${summary.untested || 0} untested</span>`;
 
                 const STATUS = { bounce: '&#x1F7E2;', break: '&#x1F534;', untested: '&#x26AA;' };
+                const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                function fmtTs(ts) {
+                    const d = new Date(ts * 1000);
+                    const p = n => String(n).padStart(2, '0');
+                    return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+                }
                 document.getElementById('fs-accuracy-list').innerHTML = [...zones].reverse().map(z => {
-                    const acc   = z.accuracy || { outcome: 'untested' };
-                    const label = z.result === 'support' ? '\u25B2 S' : '\u25BC R';
-                    const price = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
-                    const icon  = STATUS[acc.outcome] || '\u26AA';
-                    const gap   = acc.entry === 'gap' ? ' <span style="color:#bbb;font-size:0.85em;">gap</span>' : '';
-                    return `<div class="acc-zone-row" data-low="${z.price_range.low}" data-high="${z.price_range.high}" style="padding:4px 2px;border-bottom:1px solid #eee;cursor:default;">
+                    const acc      = z.accuracy || { outcome: 'untested' };
+                    const label    = z.result === 'support' ? '\u25B2 S' : '\u25BC R';
+                    const price    = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
+                    const icon     = STATUS[acc.outcome] || '\u26AA';
+                    const gap      = acc.entry === 'gap' ? ' <span style="color:#bbb;font-size:0.85em;">gap</span>' : '';
+                    const detected = fmtTs(z.detected_at);
+                    const startTs  = Math.floor(new Date(z.start_time).getTime() / 1000);
+                    const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
+                    return `<div class="acc-zone-row" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}" style="padding:4px 2px;border-bottom:1px solid #eee;cursor:default;">
                         ${icon} ${label} <span style="font-family:monospace;">${price}</span>${gap}
+                        <span style="color:#999;margin-left:4px;">${detected}</span>
                     </div>`;
                 }).join('');
             }
@@ -464,16 +474,19 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 if (fsChartInstance) {
                     fsChartInstance.subscribeCrosshairMove(param => {
                         const rows = document.querySelectorAll('.acc-zone-row');
-                        if (!param.point) {
+                        if (!param.point || !param.time) {
                             rows.forEach(el => el.style.background = '');
                             return;
                         }
                         const price = fsCandleSeriesRef ? fsCandleSeriesRef.coordinateToPrice(param.point.y) : null;
                         if (price === null) { rows.forEach(el => el.style.background = ''); return; }
+                        const t = typeof param.time === 'number' ? param.time : Math.floor(new Date(param.time).getTime() / 1000);
                         rows.forEach(el => {
-                            const lo = parseFloat(el.dataset.low);
-                            const hi = parseFloat(el.dataset.high);
-                            el.style.background = (price >= lo && price <= hi) ? '#fff9c4' : '';
+                            const lo    = parseFloat(el.dataset.low);
+                            const hi    = parseFloat(el.dataset.high);
+                            const start = parseInt(el.dataset.start);
+                            const end   = parseInt(el.dataset.end);
+                            el.style.background = (price >= lo && price <= hi && t >= start && t <= end) ? '#fff9c4' : '';
                         });
                     });
                 }
