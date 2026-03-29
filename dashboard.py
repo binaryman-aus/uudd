@@ -518,7 +518,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const p2  = z.accuracy?.phase2;
                     if (!p2 || p2.max_magnitude === null || p2.max_magnitude === undefined) return;
                     const val   = z.result === 'support' ? p2.max_magnitude : -p2.max_magnitude;
-                    const color = p2.outcome === 'active' ? 'rgba(38,166,154,0.8)' : 'rgba(239,83,80,0.8)';
+                    const color = z.result === 'support' ? 'rgba(38,166,154,0.8)' : 'rgba(239,83,80,0.8)';
                     zoneMap[z.detected_at] = { value: val, color };
                 });
 
