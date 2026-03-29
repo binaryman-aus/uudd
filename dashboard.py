@@ -50,6 +50,42 @@ def format_telegram_message(detections):
     return message
 
 
+def evaluate_zone_accuracy(zone, df):
+    detected_at = zone['detected_at']
+    zone_type   = zone['result']
+    z_low       = zone['price_range']['low']
+    z_high      = zone['price_range']['high']
+
+    bar_ts = df['time'].apply(lambda t: int(t.timestamp()))
+    future = df[bar_ts > detected_at]
+
+    for _, bar in future.iterrows():
+        if zone_type == 'support':
+            if bar['low'] > z_high:
+                continue
+            elif bar['high'] < z_high:
+                if bar['low'] < z_low:
+                    return {'outcome': 'break', 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'gap'}
+                else:
+                    continue  # gapped into zone but not through — still alive
+            else:  # straddles z_high: limit fills
+                outcome = 'break' if bar['low'] < z_low else 'bounce'
+                return {'outcome': outcome, 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'valid'}
+        else:  # resistance
+            if bar['high'] < z_low:
+                continue
+            elif bar['low'] > z_low:
+                if bar['high'] > z_high:
+                    return {'outcome': 'break', 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'gap'}
+                else:
+                    continue  # gapped into zone but not through — still alive
+            else:  # straddles z_low: limit fills
+                outcome = 'break' if bar['high'] > z_high else 'bounce'
+                return {'outcome': outcome, 'test_bar_time': int(bar['time'].timestamp()), 'entry': 'valid'}
+
+    return {'outcome': 'untested', 'test_bar_time': None}
+
+
 def generate_dashboard(all_results, params, output_file="dashboard.html"):
     """
     Generates a 3x3 dashboard HTML report with mobile responsiveness and fullscreen toggle.
@@ -226,7 +262,13 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     <span style="font-size:1.1em;padding:2px 8px;background:#ccc;border-radius:3px;">&#x2715; Close</span>
                 </span>
             </div>
-            <div id="fs-chart-container" style="flex:1;position:relative;min-height:0;"></div>
+            <div style="flex:1;display:flex;min-height:0;">
+                <div id="fs-chart-container" style="flex:1;position:relative;min-height:0;"></div>
+                <div id="fs-accuracy-panel" style="width:230px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
+                    <div id="fs-accuracy-summary" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;font-weight:bold;"></div>
+                    <div id="fs-accuracy-list"></div>
+                </div>
+            </div>
         </div>
 
         <script>
@@ -375,6 +417,37 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 fsChartInstance.timeScale().scrollToRealTime();
             }
 
+            function fmtPrice(p) {
+                if (p >= 1000) return p.toFixed(2);
+                if (p >= 1)    return p.toFixed(4);
+                return p.toFixed(5);
+            }
+
+            function renderAccuracyPanel(symbol) {
+                const data    = allResults[symbol];
+                if (!data) return;
+                const summary = data.accuracy_summary || {};
+                const zones   = (data.results || []).filter(z => z.result !== 'nil');
+
+                const hr = summary.hit_rate !== null && summary.hit_rate !== undefined
+                    ? `${summary.hit_rate}% hit rate (${summary.bounces}\u2191 / ${summary.breaks}\u2717)`
+                    : 'No tests yet';
+                document.getElementById('fs-accuracy-summary').innerHTML =
+                    `${hr}<br><span style="font-weight:normal;">&#x1F7E2; ${summary.bounces || 0} bounce &nbsp; &#x1F534; ${summary.breaks || 0} break &nbsp; &#x26AA; ${summary.untested || 0} untested</span>`;
+
+                const STATUS = { bounce: '&#x1F7E2;', break: '&#x1F534;', untested: '&#x26AA;' };
+                document.getElementById('fs-accuracy-list').innerHTML = [...zones].reverse().map(z => {
+                    const acc   = z.accuracy || { outcome: 'untested' };
+                    const label = z.result === 'support' ? '\u25B2 S' : '\u25BC R';
+                    const price = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
+                    const icon  = STATUS[acc.outcome] || '\u26AA';
+                    const gap   = acc.entry === 'gap' ? ' <span style="color:#bbb;font-size:0.85em;">gap</span>' : '';
+                    return `<div class="acc-zone-row" data-low="${z.price_range.low}" data-high="${z.price_range.high}" style="padding:4px 2px;border-bottom:1px solid #eee;cursor:default;">
+                        ${icon} ${label} <span style="font-family:monospace;">${price}</span>${gap}
+                    </div>`;
+                }).join('');
+            }
+
             function openFullscreen(symbol) {
                 const overlay   = document.getElementById('fs-overlay');
                 const container = document.getElementById('fs-chart-container');
@@ -384,6 +457,22 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 overlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
                 fsChartInstance = buildChart(container, symbol, 500, FS_CHART_OPTS);
+                renderAccuracyPanel(symbol);
+                if (fsChartInstance) {
+                    fsChartInstance.subscribeCrosshairMove(param => {
+                        const rows = document.querySelectorAll('.acc-zone-row');
+                        if (!param.point) {
+                            rows.forEach(el => el.style.background = '');
+                            return;
+                        }
+                        const price = fsChartInstance.priceScale('right').coordinateToPrice(param.point.y);
+                        rows.forEach(el => {
+                            const lo = parseFloat(el.dataset.low);
+                            const hi = parseFloat(el.dataset.high);
+                            el.style.background = (price >= lo && price <= hi) ? '#fff9c4' : '';
+                        });
+                    });
+                }
             }
 
             function closeFullscreen() {
@@ -465,9 +554,20 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         else:
             formatted_all_data[symbol] = {"candles": [], "ema9": [], "ema21": []}
 
+        acc_list     = [z.get('accuracy', {}) for z in symbol_results]
+        bounces      = sum(1 for a in acc_list if a.get('outcome') == 'bounce')
+        breaks       = sum(1 for a in acc_list if a.get('outcome') == 'break')
+        untested     = sum(1 for a in acc_list if a.get('outcome') == 'untested')
+        total_tested = bounces + breaks
         formatted_all_results[symbol] = {
             "results": symbol_results,
-            "last_bar_time": chart_data[-1]['time'] if chart_data else 0
+            "last_bar_time": chart_data[-1]['time'] if chart_data else 0,
+            "accuracy_summary": {
+                "bounces": bounces,
+                "breaks": breaks,
+                "untested": untested,
+                "hit_rate": round(bounces / total_tested * 100, 1) if total_tested else None
+            }
         }
 
     # Build 10-char history strings for each symbol (used in chart headers)
@@ -576,6 +676,9 @@ def run_pipeline():
                         sr_result['detected_at'] = int(window_data[-1]['time'].timestamp())
                         symbol_results.append(sr_result)
             
+            for zone in symbol_results:
+                zone['accuracy'] = evaluate_zone_accuracy(zone, df)
+
             all_results[symbol] = {
                 "data": data,
                 "results": symbol_results
