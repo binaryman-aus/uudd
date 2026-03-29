@@ -348,10 +348,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 const chart = LightweightCharts.createChart(container, opts);
 
-                chart.addCandlestickSeries({
+                const candleSeries = chart.addCandlestickSeries({
                     upColor: '#26a69a', downColor: '#ef5350',
                     borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
-                }).setData(chartData);
+                });
+                candleSeries.setData(chartData);
+                if (opts === FS_CHART_OPTS) fsCandleSeriesRef = candleSeries;
 
                 if (symbolData.ema9.length > 0)
                     chart.addLineSeries({ color: '#2196F3', lineWidth: 1, priceLineVisible: false, lastValueVisible: false })
@@ -388,6 +390,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
 
             let fsChartInstance = null;
+            let fsCandleSeriesRef = null;
             const gridCharts = {};
 
             function resetChart(symbol, e) {
@@ -465,7 +468,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                             rows.forEach(el => el.style.background = '');
                             return;
                         }
-                        const price = fsChartInstance.priceScale('right').coordinateToPrice(param.point.y);
+                        const price = fsCandleSeriesRef ? fsCandleSeriesRef.coordinateToPrice(param.point.y) : null;
+                        if (price === null) { rows.forEach(el => el.style.background = ''); return; }
                         rows.forEach(el => {
                             const lo = parseFloat(el.dataset.low);
                             const hi = parseFloat(el.dataset.high);
