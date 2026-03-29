@@ -302,7 +302,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 </span>
             </div>
             <div style="flex:1;display:flex;min-height:0;">
-                <div id="fs-chart-container" style="flex:1;position:relative;min-height:0;"></div>
+                <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+                    <div id="fs-chart-container" style="flex:7;position:relative;min-height:0;"></div>
+                    <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid #eee;"></div>
+                </div>
                 <div id="fs-accuracy-panel" style="width:300px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
                     <div id="fs-accuracy-summary" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;font-weight:bold;"></div>
                     <div id="fs-accuracy-list"></div>
@@ -429,6 +432,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
 
             let fsChartInstance = null;
+            let fsScatterInstance = null;
             let fsCandleSeriesRef = null;
             const gridCharts = {};
 
@@ -503,15 +507,85 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 }).join('');
             }
 
+            function buildScatterChart(container, symbol) {
+                const zones   = (allResults[symbol]?.results || []).filter(z => z.result !== 'nil');
+                const candles = allData[symbol]?.candles || [];
+                if (!candles.length) return null;
+
+                // Map detected_at → {value, color} for zones with a fill
+                const zoneMap = {};
+                zones.forEach(z => {
+                    const p2  = z.accuracy?.phase2;
+                    if (!p2 || p2.max_magnitude === null || p2.max_magnitude === undefined) return;
+                    const val   = z.result === 'support' ? p2.max_magnitude : -p2.max_magnitude;
+                    const color = p2.outcome === 'active' ? 'rgba(38,166,154,0.8)' : 'rgba(239,83,80,0.8)';
+                    zoneMap[z.detected_at] = { value: val, color };
+                });
+
+                // Build full-density data array (same bar count as candlestick for logical-range sync)
+                const histData = candles.map(c => {
+                    const zd = zoneMap[c.time];
+                    return zd ? { time: c.time, value: zd.value, color: zd.color }
+                               : { time: c.time, value: 0, color: 'rgba(0,0,0,0)' };
+                });
+
+                const chart = LightweightCharts.createChart(container, {
+                    autoSize: true,
+                    layout: { background: { type: 'solid', color: '#fafafa' }, textColor: '#555' },
+                    grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+                    timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false, rightOffset: 5 },
+                    rightPriceScale: { autoScale: true, borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.1 } },
+                    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                    handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+                    handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+                });
+
+                // Zero baseline
+                chart.addLineSeries({
+                    color: '#bbb', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
+                    priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+                }).setData([
+                    { time: candles[0].time, value: 0 },
+                    { time: candles[candles.length - 1].time, value: 0 },
+                ]);
+
+                const hist = chart.addHistogramSeries({
+                    base: 0, priceLineVisible: false, lastValueVisible: false,
+                    priceFormat: { type: 'custom', formatter: p => p.toFixed(1) + 'x' },
+                });
+                hist.setData(histData);
+
+                return chart;
+            }
+
             function openFullscreen(symbol) {
-                const overlay   = document.getElementById('fs-overlay');
-                const container = document.getElementById('fs-chart-container');
-                if (fsChartInstance) { fsChartInstance.remove(); fsChartInstance = null; }
+                const overlay         = document.getElementById('fs-overlay');
+                const container       = document.getElementById('fs-chart-container');
+                const scatterContainer = document.getElementById('fs-scatter-container');
+                if (fsChartInstance)  { fsChartInstance.remove();  fsChartInstance  = null; }
+                if (fsScatterInstance) { fsScatterInstance.remove(); fsScatterInstance = null; }
                 container.innerHTML = '';
+                scatterContainer.innerHTML = '';
                 document.getElementById('fs-title').textContent = symbol + ' \u2014 click header or press Esc to close';
                 overlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
-                fsChartInstance = buildChart(container, symbol, 500, FS_CHART_OPTS);
+                fsChartInstance   = buildChart(container, symbol, 500, FS_CHART_OPTS);
+                fsScatterInstance = buildScatterChart(scatterContainer, symbol);
+                // Sync time scales (logical range — both charts share same bar count)
+                if (fsChartInstance && fsScatterInstance) {
+                    let syncing = false;
+                    fsChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                        if (syncing || !range) return; syncing = true;
+                        fsScatterInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
+                    });
+                    fsScatterInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                        if (syncing || !range) return; syncing = true;
+                        fsChartInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
+                    });
+                    // Apply initial range from main chart
+                    const initRange = fsChartInstance.timeScale().getVisibleLogicalRange();
+                    if (initRange) fsScatterInstance.timeScale().setVisibleLogicalRange(initRange);
+                }
                 renderAccuracyPanel(symbol);
                 if (fsChartInstance) {
                     fsChartInstance.subscribeCrosshairMove(param => {
@@ -535,8 +609,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
 
             function closeFullscreen() {
-                if (fsChartInstance) { fsChartInstance.remove(); fsChartInstance = null; }
+                if (fsChartInstance)   { fsChartInstance.remove();   fsChartInstance   = null; }
+                if (fsScatterInstance) { fsScatterInstance.remove();  fsScatterInstance = null; }
                 document.getElementById('fs-chart-container').innerHTML = '';
+                document.getElementById('fs-scatter-container').innerHTML = '';
                 document.getElementById('fs-overlay').style.display = 'none';
                 document.body.style.overflow = '';
             }

@@ -104,18 +104,33 @@ For scenario 3 (SL hit), magnitude is the best excursion reached *before* the st
 
 ### Result Presentation
 
-Same right-side panel, upgraded:
+**Right-side panel (300px)** — same as Phase 1, upgraded:
 
 ```
 🟢 5 active   🔴 3 broken   ⚪ 2 untested
 
 🟢 ▼ R  1.2340–1.2360   max 2.3x
+   Mar 29 14:00
 🔴 ▲ S  1.2280–1.2300   max 1.1x  ✗
-⚪ ▼ R  1.2410–1.2430   —
+   Mar 29 10:00
+⚪ ▼ R  1.2410–1.2430
+   Mar 28 22:00
 ...
 ```
 
-`max Nx` = max favorable excursion as multiple of zone width. `✗` = SL was eventually hit.
+`max Nx` = max favorable excursion in zone-widths. `✗` = SL was hit.
+
+**Scatter chart** — below the candlestick chart, shares the same time scale (scrolls and zooms together):
+
+- **x-axis**: time, same scale as the candlestick above
+- **y-axis**: magnitude in zone-widths
+  - Positive = support (long) — favorable excursion above entry
+  - Negative = resistance (short) — favorable excursion below entry
+- **Zero line**: dashed baseline (no movement from entry)
+- **Colours**: green (active), red (broken)
+- Untested zones (no fill) are not plotted
+
+Example: a resistance zone where price moved 2.0 zone-widths below entry before the SL was hit would appear as a red bar at y = −2.0 at the detection time.
 
 Hover behaviour carried forward from Phase 1. The highlighted sidebar entry expands to show entry price, max excursion, and SL hit time (if applicable) when cursor is inside the zone.
 
