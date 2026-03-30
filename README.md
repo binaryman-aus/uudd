@@ -120,6 +120,72 @@ Only a single result (`support` or `resistance`) is returned per bar.
 
 ---
 
+## 📊 Zone Accuracy Evaluation
+
+After detection, each zone is forward-tested against the bars that follow `detected_at`. This evaluation runs in `dashboard.py` (`evaluate_zone_accuracy`) and produces two chained phases.
+
+### Phase 1 — First-Touch (next bar only)
+
+Only the **immediately following bar** is inspected. The logic models a limit order placed at the zone boundary.
+
+#### Support zone — limit buy at `z_high`
+
+| Bar behaviour | Outcome |
+|:---|:---|
+| `low > z_high` | **Untested** — price never reached the zone |
+| `low ≤ z_high ≤ high` (straddles) | **Fills** at `min(open, z_high)`; if `low < z_low` same bar → **Break**; else → **Bounce** |
+| `high < z_high` AND `low < z_low` (gap-through) | **Break** — virtual entry recorded at `z_high`; no live fill |
+| `high < z_high` AND `low ≥ z_low` (gap into zone) | **Untested** — price is inside zone but limit not yet reached |
+
+#### Resistance zone — limit sell at `z_low`
+
+| Bar behaviour | Outcome |
+|:---|:---|
+| `high < z_low` | **Untested** — price never reached the zone |
+| `low ≤ z_low ≤ high` (straddles) | **Fills** at `max(open, z_low)`; if `high > z_high` same bar → **Break**; else → **Bounce** |
+| `low > z_low` AND `high > z_high` (gap-through) | **Break** — virtual entry recorded at `z_low`; no live fill |
+| `low > z_low` AND `high ≤ z_high` (gap into zone) | **Untested** — price is inside zone but limit not yet reached |
+
+**Entry price** is the realistic fill:
+- Normal fill: `min(open, z_high)` for support, `max(open, z_low)` for resistance — accounts for bar opening inside the zone.
+- Gap-through: a virtual entry at the zone boundary (`z_high` for support, `z_low` for resistance) simulates the limit order that would have filled before price gapped to the stop.
+
+Phase 1 outcomes: `bounce` / `break` / `untested`.
+
+### Phase 2 — Excursion Tracking (all future bars after fill)
+
+Only runs if Phase 1 resulted in a **bounce** (live fill, stop not hit immediately).
+
+The **stop-loss** is the far boundary of the zone (`z_low` for support, `z_high` for resistance). **Risk** is the distance from entry to stop:
+
+```
+risk = entry_price − z_low   (support)
+risk = z_high − entry_price  (resistance)
+```
+
+For each subsequent bar the tracker:
+- Records the maximum favourable excursion as a **risk-multiple** (`max_magnitude`).
+- Stops and marks outcome `broken` the moment price closes the stop (`low < z_low` for support, `high > z_high` for resistance).
+
+If price never hits the stop across all remaining bars, outcome stays `active`.
+
+Phase 2 outcomes: `active` / `broken`.
+
+### Dashboard Display Categories
+
+Zones are grouped in the Zone Performance panel by their combined Phase 1 + Phase 2 status:
+
+| Category | Condition |
+|:---|:---|
+| **Hit SL** | Phase 2 outcome = `broken` (stop was eventually hit) |
+| **Closed** | All configured take-profit targets reached while position was `active` |
+| **Open** | Phase 2 outcome = `active` (still in trade, TPs not all hit) |
+| **Untested** | Phase 1 outcome = `untested` (price never touched the zone) |
+
+Each zone row shows: entry × SL price pair, status badge, and realized/unrealized P&L split based on the Multi-TP Strategy Simulator configuration.
+
+---
+
 ## 🛠️ Toolset
 
 ### `dashboard.py` (The Pipeline)
