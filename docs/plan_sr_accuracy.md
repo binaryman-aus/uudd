@@ -167,7 +167,7 @@ For each zone with a fill (outcome ≠ untested):
 - **Risk** = 1 zone-width (distance from entry to SL), used as the common unit
 - For each TP row: if `max_magnitude >= tp_level` → that slice was closed at profit `+tp_level`
 - For each TP row: if `max_magnitude < tp_level` AND zone is **broken** → that slice was closed at SL = `−1.0x`
-- For each TP row: if `max_magnitude < tp_level` AND zone is **active** → position still open, excluded from realised P&L
+- For each TP row: if `max_magnitude < tp_level` AND zone is **active** → position still open; unrealised P&L = `frac × max_magnitude` (marked at best excursion reached so far)
 
 P&L per zone (broken example with config above, max_magnitude = 1.3x):
 ```
@@ -180,10 +180,12 @@ Zone P&L = +0.50 − 0.30 − 0.20 = 0.00x
 ### Summary metrics
 
 Across all filled zones:
-- **Total P&L** — sum of all zone P&Ls (in zone-widths per trade, averaged)
-- **Win zones** — zones where net P&L > 0
-- **Loss zones** — zones where net P&L ≤ 0
-- **Excluded** — active zones with unrealised TPs (counted separately)
+- **Realized P&L / trade** — from hit TPs and stopped-out SL slices only
+- **Unrealized P&L / trade** — open TPs on active zones, valued at `max_magnitude`
+- **Total P&L / trade** — realized + unrealized
+- **Win zones** — zones where total P&L > 0
+- **Loss zones** — zones where total P&L ≤ 0
+- **Open** — active zones that have at least one unrealized TP slice (shown with `~` prefix in zone list)
 
 ### Result Presentation
 
@@ -198,13 +200,17 @@ The TP table and summary appear at the top of the accuracy panel, above the zone
 │ TP3  [  4.0x  ]   [  20%  ]         │
 │                   Total: 100% ✓      │
 ├──────────────────────────────────────┤
-│ Avg P&L: +0.42x/trade                │
-│ 🟢 Win: 112  🔴 Loss: 71  ⚫ 6      │
+│ Realized / trade:    +0.31x          │
+│ Unrealized / trade:  +0.11x          │
+│ ─────────────────────────────        │
+│ Total / trade:       +0.42x          │
+│ 🟢 Win: 112  🔴 Loss: 71  ~ 6 open  │
 └──────────────────────────────────────┘
 
 🟢 ▼ R  1.2340–1.2360   +0.80x
 🔴 ▲ S  1.2280–1.2300   −0.20x  ✗
-⚪ ▼ R  1.2410–1.2430   —
+🟢 ▼ R  1.2410–1.2430  ~+0.45x   ← active zone; ~ prefix = includes unrealized
+⚪ ▲ S  1.2500–1.2520   —
 ...
 ```
 

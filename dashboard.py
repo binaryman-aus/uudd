@@ -260,6 +260,74 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
             .settings-item:hover { background: #f0f0f0; }
             .settings-item.active { font-weight: bold; color: #2196F3; }
+            /* ── Accuracy Panel ──────────────────────────────────────────── */
+            #fs-accuracy-panel {
+                background: #fff; color: #333;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                font-size: 0.82em; border-left: 1px solid #e0e0e0;
+            }
+            .ap-section { padding: 10px 12px; border-bottom: 1px solid #eee; }
+            .ap-title {
+                font-size: 0.72em; font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.1em; color: #aaa; margin-bottom: 8px;
+            }
+            .ap-input {
+                background: #f7f7f7; border: 1px solid #ddd; border-radius: 4px;
+                color: #333; font-family: monospace; font-size: 0.9em;
+                padding: 3px 5px; width: 46px; text-align: right;
+                transition: border-color 0.15s; -moz-appearance: textfield;
+            }
+            .ap-input::-webkit-outer-spin-button,
+            .ap-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+            .ap-input:focus { outline: none; border-color: #2196F3; background: #fff; }
+            .ap-total {
+                font-size: 0.78em; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+            }
+            .ap-total.valid   { background: rgba(38,166,154,0.12); color: #1a9188; }
+            .ap-total.invalid { background: rgba(239,83,80,0.12);  color: #d32f2f; }
+            .ap-pnl-big {
+                text-align: center; font-size: 1.5em; font-weight: 700;
+                font-family: monospace; padding: 6px 0 2px;
+            }
+            .ap-badge {
+                display: inline-flex; align-items: center; gap: 3px;
+                padding: 2px 8px; border-radius: 10px; font-size: 0.82em; font-weight: 600;
+            }
+            .ap-badge.grn { background: rgba(38,166,154,0.10); color: #1a9188; }
+            .ap-badge.red { background: rgba(239,83,80,0.10);  color: #d32f2f; }
+            .ap-badge.gry { background: rgba(0,0,0,0.06); color: #888; }
+            .ap-badge-row { display: flex; gap: 5px; flex-wrap: wrap; padding: 2px 0; }
+            .acc-zone-row {
+                padding: 6px 10px 5px 12px; border-bottom: 1px solid #f0f0f0;
+                cursor: default; border-left: 3px solid #e0e0e0;
+            }
+            .acc-zone-row.out-active   { border-left-color: #26a69a; }
+            .acc-zone-row.out-broken   { border-left-color: #ef5350; }
+            .acc-zone-row.out-untested { border-left-color: #ddd; }
+            .acc-zone-row.highlighted  { background: #fffde7 !important; }
+            .zone-dir {
+                font-size: 0.74em; font-weight: 700; padding: 1px 4px;
+                border-radius: 3px; margin-right: 3px;
+            }
+            .zone-dir.sup { background: rgba(38,166,154,0.12); color: #1a9188; }
+            .zone-dir.res { background: rgba(239,83,80,0.12);  color: #d32f2f; }
+            .zone-price { font-family: monospace; color: #222; font-size: 0.95em; }
+            .zone-meta  { font-size: 0.78em; color: #bbb; margin-top: 3px;
+                          display: flex; justify-content: space-between; align-items: center; }
+            .zone-mag   { font-family: monospace; font-size: 0.85em; color: #aaa; }
+            .zone-tp-detail { padding: 4px 10px 6px 12px; display: none; }
+            .zone-tp-detail.visible { display: block; }
+            .zone-tp-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px; }
+            .tp-pill {
+                font-size: 0.72em; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+                font-family: monospace; letter-spacing: 0.03em;
+            }
+            .tp-pill.hit  { background: rgba(38,166,154,0.12); color: #1a9188; }
+            .tp-pill.miss { background: rgba(239,83,80,0.10);  color: #d32f2f; }
+            .tp-pill.open { background: rgba(0,0,0,0.05);      color: #999; }
+            .tp-pill.sl   { background: rgba(239,83,80,0.15);  color: #c62828; font-style: italic; }
+            .zone-ru-row  { font-size: 0.78em; color: #5a6a8a; display: flex; gap: 12px; }
+            .zone-ru-lbl  { color: #bbb; margin-right: 2px; }
         </style>
     </head>
     <body>
@@ -306,10 +374,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     <div id="fs-chart-container" style="flex:7;position:relative;min-height:0;"></div>
                     <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid #eee;"></div>
                 </div>
-                <div id="fs-accuracy-panel" style="width:300px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
-                    <div id="fs-tp-section" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;"></div>
-                    <div id="fs-tp-results" style="margin-bottom:6px;border-bottom:1px solid #ddd;padding-bottom:6px;font-size:0.9em;min-height:1.8em;"></div>
-                    <div id="fs-accuracy-summary" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;font-weight:bold;"></div>
+                <div id="fs-accuracy-panel" style="width:300px;overflow-y:auto;flex-shrink:0;">
+                    <div id="fs-tp-section"></div>
+                    <div id="fs-tp-results"></div>
+                    <div id="fs-accuracy-summary"></div>
                     <div id="fs-accuracy-list"></div>
                 </div>
             </div>
@@ -494,55 +562,138 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 if (!p2 || p2.outcome === 'untested') return null;
                 const mag    = p2.max_magnitude ?? 0;
                 const broken = p2.outcome === 'broken';
-                let pnl = 0, hasUnrealised = false;
+                const active = p2.outcome === 'active';
+                let realizedPnl = 0, unrealizedPnl = 0;
                 for (const tp of tps) {
                     const frac = tp.pct / 100;
-                    if (mag >= tp.mag)   pnl += frac * tp.mag;
-                    else if (broken)     pnl += frac * (-1.0);
-                    else                 hasUnrealised = true;
+                    if (mag >= tp.mag)   realizedPnl   += frac * tp.mag;
+                    else if (broken)     realizedPnl   += frac * (-1.0);
+                    else                 unrealizedPnl += frac * mag;   // open at max excursion
                 }
-                return {pnl, hasUnrealised};
+                return {realizedPnl, unrealizedPnl, totalPnl: realizedPnl + unrealizedPnl, isActive: active};
+            }
+            function fmtPnl(v, mono) {
+                const s = (v >= 0 ? '+' : '') + v.toFixed(2) + 'x';
+                const c = v >= 0 ? '#26a69a' : '#ef5350';
+                return mono
+                    ? '<span style="color:'+c+';font-family:monospace;font-weight:700;">'+s+'</span>'
+                    : '<span style="color:'+c+';">'+s+'</span>';
             }
             function updateTPResults(symbol, tps) {
-                const total = tps.reduce((s,t) => s + t.pct, 0);
+                const total   = tps.reduce((s,t) => s + t.pct, 0);
+                const valid   = Math.abs(total - 100) < 0.01;
                 const totalEl = document.getElementById('fs-tp-total');
                 if (totalEl) {
-                    totalEl.textContent = 'Total: ' + total + '%';
-                    totalEl.style.color = Math.abs(total - 100) < 0.01 ? '#2a8a2a' : '#c00';
+                    totalEl.className = 'ap-total ' + (valid ? 'valid' : 'invalid');
+                    totalEl.innerHTML = valid ? '&#x2713;&nbsp;100%' : 'Total: ' + total + '%';
                 }
                 const resultsEl = document.getElementById('fs-tp-results');
-                if (Math.abs(total - 100) > 0.01) {
-                    if (resultsEl) resultsEl.innerHTML = '<span style="color:#c00;">Position % must sum to 100%</span>';
-                    document.querySelectorAll('.zone-pnl').forEach(el => el.textContent = '');
+                if (!valid) {
+                    if (resultsEl) resultsEl.innerHTML =
+                        '<div class="ap-section" style="color:#ef5350;font-size:0.85em;">Position % must sum to 100%</div>';
+                    document.querySelectorAll('.zone-pnl').forEach(el => el.innerHTML = '');
+                    document.querySelectorAll('.zone-tp-detail').forEach(el => { el.innerHTML = ''; el.classList.remove('visible'); });
                     return;
                 }
                 const zones = (allResults[symbol]?.results || []).filter(z => z.result !== 'nil');
-                let totalPnl = 0, wins = 0, losses = 0, excluded = 0;
+                let sumRealized = 0, sumUnrealized = 0, wins = 0, losses = 0, filled = 0;
+                const brokenMags = [], closedMags = [], openMags = [];
                 zones.forEach(z => {
-                    const r    = calcZonePnL(z, tps);
-                    const span = document.querySelector('.zone-pnl[data-dat="' + z.detected_at + '"]');
-                    if (!r) { if (span) span.innerHTML = ''; return; }
-                    if (r.hasUnrealised) {
-                        excluded++;
-                        if (span) span.innerHTML = '<span style="color:#aaa;font-size:0.85em;">open</span>';
+                    const r      = calcZonePnL(z, tps);
+                    const span   = document.querySelector('.zone-pnl[data-dat="' + z.detected_at + '"]');
+                    const detail = document.querySelector('.zone-tp-detail[data-dat="' + z.detected_at + '"]');
+                    if (!r) {
+                        if (span)   span.innerHTML   = '';
+                        if (detail) { detail.innerHTML = ''; detail.classList.remove('visible'); }
                         return;
                     }
-                    totalPnl += r.pnl;
-                    if (r.pnl > 0) wins++; else losses++;
+                    filled++;
+                    sumRealized   += r.realizedPnl;
+                    sumUnrealized += r.unrealizedPnl;
+                    const mag    = z.accuracy?.phase2?.max_magnitude ?? 0;
+                    const broken = z.accuracy?.phase2?.outcome === 'broken';
+                    const allTpsHit = tps.every(tp => mag >= tp.mag);
+                    if (broken)              brokenMags.push(mag);
+                    else if (allTpsHit)      closedMags.push(mag);
+                    else if (r.isActive)     openMags.push(mag);
+                    const hasOpen = r.isActive && r.unrealizedPnl !== 0;
+                    if (r.totalPnl > 0) wins++; else losses++;
+                    // Total P&L in zone-meta row
                     if (span) {
-                        const c = r.pnl > 0 ? '#2a8a2a' : '#c00';
-                        span.innerHTML = '<span style="color:'+c+';font-weight:bold;">'+(r.pnl>=0?'+':'')+r.pnl.toFixed(2)+'x</span>';
+                        const prefix = hasOpen ? '<span style="color:#aaa;font-size:0.85em;">~</span>' : '';
+                        span.innerHTML = prefix + fmtPnl(r.totalPnl, true);
+                    }
+                    // TP pills + R/U breakdown in detail row
+                    if (detail) {
+                        let pills = '';
+                        tps.forEach((tp, i) => {
+                            if (mag >= tp.mag) {
+                                pills += '<span class="tp-pill hit">TP'+(i+1)+' \u2713</span>';
+                            } else if (broken) {
+                                pills += '<span class="tp-pill miss">TP'+(i+1)+' \u2717</span>';
+                            } else {
+                                pills += '<span class="tp-pill open">TP'+(i+1)+' \u007E</span>';
+                            }
+                        });
+                        if (broken) pills += '<span class="tp-pill sl">SL</span>';
+                        const rStr = fmtPnl(r.realizedPnl, false);
+                        const uStr = r.unrealizedPnl !== 0
+                            ? fmtPnl(r.unrealizedPnl, false)
+                            : '<span style="color:#ccc;">\u2014</span>';
+                        detail.innerHTML =
+                            '<div class="zone-tp-row">' + pills + '</div>' +
+                            '<div class="zone-ru-row">' +
+                            '<span><span class="zone-ru-lbl">R</span>' + rStr + '</span>' +
+                            '<span><span class="zone-ru-lbl">U</span>' + uStr + '</span>' +
+                            '</div>';
+                        detail.classList.add('visible');
                     }
                 });
-                const filled = wins + losses;
-                const avg    = filled > 0 ? totalPnl / filled : null;
-                const avgStr = avg !== null
-                    ? '<b style="color:'+(avg>=0?'#2a8a2a':'#c00')+'">'+(avg>=0?'+':'')+avg.toFixed(2)+'x</b>/trade'
-                    : '\u2014';
+                const avgR = filled > 0 ? sumRealized   / filled : null;
+                const avgU = filled > 0 ? sumUnrealized / filled : null;
+                const avgT = filled > 0 ? (sumRealized + sumUnrealized) / filled : null;
+                const dash = '\u2014';
+                function avgRow(label, val, dimmed) {
+                    const valStr = val !== null ? fmtPnl(val, false) : '<span style="color:#aaa;">'+dash+'</span>';
+                    return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;">' +
+                        '<span style="font-size:0.78em;color:'+(dimmed?'#bbb':'#5a6a8a')+';">'+label+'</span>' +
+                        '<span style="font-family:monospace;font-size:0.95em;">'+valStr+'</span></div>';
+                }
+                // TP hit-rate cells for a group
+                function tpRateCells(mags) {
+                    return tps.map((tp, i) => {
+                        const pct = mags.length ? Math.round(mags.filter(m => m >= tp.mag).length / mags.length * 100) : 0;
+                        const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
+                        return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';">TP'+(i+1)+' '+pct+'%</td>';
+                    }).join('');
+                }
+                function groupRow(label, labelColor, mags) {
+                    if (!filled) return '';
+                    const cnt    = mags.length;
+                    const rowPct = Math.round(cnt / filled * 100);
+                    return '<tr>' +
+                        '<td style="padding:4px 8px 4px 0;white-space:nowrap;">' +
+                        '<span style="font-size:0.74em;font-weight:700;color:'+labelColor+';">'+label+'</span>' +
+                        '</td>' +
+                        '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;white-space:nowrap;">' +
+                        cnt + ' <span style="color:#aaa;font-size:0.88em;">('+rowPct+'%)</span>' +
+                        '</td>' +
+                        tpRateCells(mags) +
+                        '</tr>';
+                }
                 if (resultsEl) resultsEl.innerHTML =
-                    'Avg P&amp;L: ' + avgStr + '<br>' +
-                    '&#x1F7E2; Win: ' + wins + ' &nbsp; &#x1F534; Loss: ' + losses +
-                    (excluded > 0 ? ' &nbsp; &#x26AB; ' + excluded + ' open' : '');
+                    '<div class="ap-section">' +
+                    avgRow('Realized / trade', avgR, false) +
+                    avgRow('Unrealized / trade', avgU, true) +
+                    '<div style="border-top:1px solid #eee;margin:4px 0;"></div>' +
+                    avgRow('Total / trade', avgT, false) +
+                    '<div style="border-top:1px solid #eee;margin:8px 0 4px;"></div>' +
+                    '<table style="width:100%;border-collapse:collapse;">' +
+                    groupRow('Hit SL', '#d32f2f', brokenMags) +
+                    groupRow('Closed', '#1a9188', closedMags) +
+                    groupRow('Open', '#888', openMags) +
+                    '</table>' +
+                    '</div>';
             }
             function onTpChange() {
                 const tps = readTpInputs();
@@ -550,21 +701,28 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 if (currentPanelSymbol) updateTPResults(currentPanelSymbol, tps);
             }
             function renderTPSection() {
-                const tps  = getTpConfig() || defaultTps();
+                const tps   = getTpConfig() || defaultTps();
                 const total = tps.reduce((s,t) => s + t.pct, 0);
-                const rows = tps.map((tp, i) =>
+                const valid = Math.abs(total - 100) < 0.01;
+                const rows  = tps.map((tp, i) =>
                     '<tr>' +
-                    '<td style="padding:2px 4px;color:#777;white-space:nowrap;">TP'+(i+1)+'</td>' +
-                    '<td style="padding:2px 4px;"><input id="tp-mag-'+(i+1)+'" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()" style="width:52px;padding:2px 4px;font-size:0.9em;border:1px solid #ccc;border-radius:3px;"></td>' +
-                    '<td style="padding:2px 4px;"><input id="tp-pct-'+(i+1)+'" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()" style="width:44px;padding:2px 4px;font-size:0.9em;border:1px solid #ccc;border-radius:3px;"> %</td>' +
+                    '<td style="padding:4px 6px;color:#4a5a8a;font-size:0.8em;font-weight:700;letter-spacing:0.05em;">TP'+(i+1)+'</td>' +
+                    '<td style="padding:4px 4px;"><input id="tp-mag-'+(i+1)+'" class="ap-input" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.82em;">x</span></td>' +
+                    '<td style="padding:4px 4px;"><input id="tp-pct-'+(i+1)+'" class="ap-input" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.82em;">%</span></td>' +
                     '</tr>'
                 ).join('');
                 document.getElementById('fs-tp-section').innerHTML =
-                    '<div style="font-weight:bold;margin-bottom:4px;">TP Settings</div>' +
+                    '<div class="ap-section">' +
+                    '<div class="ap-title">Strategy Simulator</div>' +
                     '<table style="width:100%;border-collapse:collapse;">' +
-                    '<tr style="font-size:0.82em;color:#aaa;"><td></td><td style="padding:2px 4px;">Target Mag</td><td style="padding:2px 4px;">Position</td></tr>' +
+                    '<tr style="font-size:0.74em;color:#354060;">' +
+                    '<td></td><td style="padding:2px 4px;">Target</td><td style="padding:2px 4px;">Size</td>' +
+                    '</tr>' +
                     rows + '</table>' +
-                    '<div id="fs-tp-total" style="text-align:right;font-size:0.82em;margin-top:2px;color:'+(Math.abs(total-100)<0.01?'#2a8a2a':'#c00')+';">Total: '+total+'%</div>';
+                    '<div style="text-align:right;margin-top:7px;">' +
+                    '<span id="fs-tp-total" class="ap-total '+(valid?'valid':'invalid')+'">' +
+                    (valid ? '&#x2713;&nbsp;100%' : 'Total: '+total+'%') +
+                    '</span></div></div>';
             }
             // ──────────────────────────────────────────────────────────────
 
@@ -578,9 +736,14 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 renderTPSection();
 
                 document.getElementById('fs-accuracy-summary').innerHTML =
-                    `&#x1F7E2; ${summary.active || 0} active &nbsp; &#x1F534; ${summary.broken || 0} broken &nbsp; &#x26AA; ${summary.untested || 0} untested`;
+                    '<div class="ap-section">' +
+                    '<div class="ap-title">Zone Performance</div>' +
+                    '<div class="ap-badge-row">' +
+                    '<span class="ap-badge grn">&#x25CF; ' + (summary.active||0) + ' active</span>' +
+                    '<span class="ap-badge red">&#x2717; ' + (summary.broken||0) + ' broken</span>' +
+                    '<span class="ap-badge gry">&#x2014; ' + (summary.untested||0) + ' untested</span>' +
+                    '</div></div>';
 
-                const P2_ICON = { active: '&#x1F7E2;', broken: '&#x1F534;', untested: '&#x26AA;' };
                 const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 function fmtTs(ts) {
                     const d = new Date(ts * 1000);
@@ -590,24 +753,27 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 document.getElementById('fs-accuracy-list').innerHTML = [...zones].reverse().map(z => {
                     const acc      = z.accuracy || {};
                     const p2       = acc.phase2 || { outcome: 'untested', max_magnitude: null };
-                    const label    = z.result === 'support' ? '\u25B2 S' : '\u25BC R';
+                    const isSupport = z.result === 'support';
                     const price    = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
-                    const icon     = P2_ICON[p2.outcome] || '&#x26AA;';
                     const mag      = p2.max_magnitude !== null && p2.max_magnitude !== undefined
-                                     ? `<span style="color:#999;margin-left:4px;font-size:0.85em;">${p2.max_magnitude}x</span>` : '';
-                    const broken   = p2.outcome === 'broken'
-                                     ? ' <span style="color:#c00;font-weight:bold;">\u2717</span>' : '';
+                                     ? `<span class="zone-mag">${p2.max_magnitude}x</span>` : '';
+                    const brokenMark = p2.outcome === 'broken'
+                                     ? ' <span style="color:#ef5350;font-weight:700;font-size:0.85em;">\u2717</span>' : '';
                     const gap      = acc.entry === 'gap'
-                                     ? ' <span style="color:#bbb;font-size:0.85em;">gap</span>' : '';
+                                     ? ' <span style="color:#354060;font-size:0.78em;">gap</span>' : '';
                     const detected = fmtTs(z.detected_at);
                     const startTs  = Math.floor(new Date(z.start_time).getTime() / 1000);
                     const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
-                    return `<div class="acc-zone-row" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}" style="padding:4px 2px;border-bottom:1px solid #eee;cursor:default;">
-                        ${icon} ${label} <span style="font-family:monospace;">${price}</span>${gap}${broken}${mag}
-                        <div style="display:flex;justify-content:space-between;align-items:center;padding-left:18px;">
-                            <span style="color:#aaa;font-size:0.85em;">${detected}</span>
+                    return `<div class="acc-zone-row out-${p2.outcome}" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}">
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <span><span class="zone-dir ${isSupport?'sup':'res'}">${isSupport?'\u25B2 S':'\u25BC R'}</span><span class="zone-price">${price}</span>${gap}</span>
+                            <span>${mag}${brokenMark}</span>
+                        </div>
+                        <div class="zone-meta">
+                            <span>${detected}</span>
                             <span class="zone-pnl" data-dat="${z.detected_at}"></span>
                         </div>
+                        <div class="zone-tp-detail" data-dat="${z.detected_at}"></div>
                     </div>`;
                 }).join('');
 
@@ -700,11 +866,11 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     fsChartInstance.subscribeCrosshairMove(param => {
                         const rows = document.querySelectorAll('.acc-zone-row');
                         if (!param.point || !param.time) {
-                            rows.forEach(el => { el.style.background = ''; el.style.display = ''; });
+                            rows.forEach(el => { el.classList.remove('highlighted'); el.style.display = ''; });
                             return;
                         }
                         const price = fsCandleSeriesRef ? fsCandleSeriesRef.coordinateToPrice(param.point.y) : null;
-                        if (price === null) { rows.forEach(el => { el.style.background = ''; el.style.display = ''; }); return; }
+                        if (price === null) { rows.forEach(el => { el.classList.remove('highlighted'); el.style.display = ''; }); return; }
                         const t = typeof param.time === 'number' ? param.time : Math.floor(new Date(param.time).getTime() / 1000);
                         const matched = new Set();
                         rows.forEach(el => {
@@ -715,8 +881,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                             if (price >= lo && price <= hi && t >= start && t <= end) matched.add(el);
                         });
                         rows.forEach(el => {
-                            el.style.background = matched.has(el) ? '#fff9c4' : '';
-                            el.style.display    = matched.size > 0 && !matched.has(el) ? 'none' : '';
+                            el.classList.toggle('highlighted', matched.has(el));
+                            el.style.display = matched.size > 0 && !matched.has(el) ? 'none' : '';
                         });
                     });
                 }
