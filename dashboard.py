@@ -60,57 +60,63 @@ def evaluate_zone_accuracy(zone, df):
     bar_ts = df['time'].apply(lambda t: int(t.timestamp()))
     future = df[bar_ts > detected_at]
 
-    filled     = False
-    p1_outcome = 'untested'
-    p1_time    = None
-    p1_entry   = None
-    p2_outcome = 'untested'
-    p2_mag     = None
+    filled      = False
+    entry_price = None
+    p1_outcome  = 'untested'
+    p1_time     = None
+    p1_entry    = None
+    p2_outcome  = 'untested'
+    p2_mag      = None
 
-    for _, bar in future.iterrows():
-        if not filled:
-            if zone_type == 'support':
-                if bar['low'] > z_high:
-                    continue
-                elif bar['high'] < z_high:
-                    if bar['low'] < z_low:            # gapped through entire zone
-                        p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
-                        p2_outcome = 'broken'; p2_mag = 0.0
-                        break
-                    else:
-                        continue                       # gapped into zone only — still alive
-                else:                                  # straddles z_high: limit fills
-                    p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
-                    if bar['low'] < z_low:             # SL hit on fill bar
-                        p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
-                        break
+    # Phase 1: only check the very next bar to decide fill/break/untested
+    if len(future) > 0:
+        bar = future.iloc[0]
+        if zone_type == 'support':
+            if bar['low'] > z_high:
+                pass                                   # price never reached zone — untested
+            elif bar['high'] < z_high:
+                if bar['low'] < z_low:                 # gapped through entire zone
+                    p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
+                    p2_outcome = 'broken'; p2_mag = 0.0
+                else:
+                    pass                               # gapped into zone only — untested
+            else:                                      # straddles z_high: limit fills
+                entry_price = min(bar['open'], z_high) # if open below z_high, enter at open
+                p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
+                if bar['low'] < z_low:                 # SL hit on fill bar
+                    p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
+                else:
                     p1_outcome = 'bounce'; filled = True; p2_outcome = 'active'; p2_mag = 0.0
-            else:                                      # resistance
-                if bar['high'] < z_low:
-                    continue
-                elif bar['low'] > z_low:
-                    if bar['high'] > z_high:           # gapped through entire zone
-                        p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
-                        p2_outcome = 'broken'; p2_mag = 0.0
-                        break
-                    else:
-                        continue                       # gapped into zone only — still alive
-                else:                                  # straddles z_low: limit fills
-                    p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
-                    if bar['high'] > z_high:           # SL hit on fill bar
-                        p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
-                        break
+        else:                                          # resistance
+            if bar['high'] < z_low:
+                pass                                   # price never reached zone — untested
+            elif bar['low'] > z_low:
+                if bar['high'] > z_high:               # gapped through entire zone
+                    p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
+                    p2_outcome = 'broken'; p2_mag = 0.0
+                else:
+                    pass                               # gapped into zone only — untested
+            else:                                      # straddles z_low: limit fills
+                entry_price = max(bar['open'], z_low)  # if open above z_low, enter at open
+                p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
+                if bar['high'] > z_high:               # SL hit on fill bar
+                    p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
+                else:
                     p1_outcome = 'bounce'; filled = True; p2_outcome = 'active'; p2_mag = 0.0
 
-        if filled:                                     # Phase 2: track excursion and SL
+    # Phase 2: track excursion and SL (includes fill bar for excursion capture)
+    if filled:
+        risk = (entry_price - z_low) if zone_type == 'support' else (z_high - entry_price)
+        risk = risk if risk > 0 else z_range
+        for _, bar in future.iterrows():
             if zone_type == 'support':
-                if bar['high'] > z_high:
-                    p2_mag = max(p2_mag, (bar['high'] - z_high) / z_range)
+                if bar['high'] > entry_price:
+                    p2_mag = max(p2_mag, (bar['high'] - entry_price) / risk)
                 if bar['low'] < z_low:
                     p2_outcome = 'broken'; break
             else:
-                if bar['low'] < z_low:
-                    p2_mag = max(p2_mag, (z_low - bar['low']) / z_range)
+                if bar['low'] < entry_price:
+                    p2_mag = max(p2_mag, (entry_price - bar['low']) / risk)
                 if bar['high'] > z_high:
                     p2_outcome = 'broken'; break
 
@@ -315,9 +321,21 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .zone-meta  { font-size: 0.78em; color: #bbb; margin-top: 3px;
                           display: flex; justify-content: space-between; align-items: center; }
             .zone-mag   { font-family: monospace; font-size: 0.85em; color: #aaa; }
+            .zone-status {
+                font-size: 0.7em; font-weight: 700; padding: 1px 6px; border-radius: 3px;
+                letter-spacing: 0.02em;
+            }
+            .zone-status.st-open     { background: rgba(38,166,154,0.10); color: #1a9188; }
+            .zone-status.st-closed   { background: rgba(38,166,154,0.18); color: #0d7a6f; }
+            .zone-status.st-sl       { background: rgba(239,83,80,0.10);  color: #d32f2f; }
+            .zone-status.st-untested { background: rgba(0,0,0,0.04);      color: #bbb; }
             .zone-tp-detail { padding: 4px 10px 6px 12px; display: none; }
             .zone-tp-detail.visible { display: block; }
-            .zone-tp-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 4px; }
+            .zone-detail-header {
+                display: flex; align-items: center; justify-content: space-between;
+                margin-bottom: 3px;
+            }
+            .zone-tp-row { display: flex; gap: 4px; flex-wrap: wrap; }
             .tp-pill {
                 font-size: 0.72em; font-weight: 700; padding: 1px 6px; border-radius: 3px;
                 font-family: monospace; letter-spacing: 0.03em;
@@ -326,8 +344,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .tp-pill.miss { background: rgba(239,83,80,0.10);  color: #d32f2f; }
             .tp-pill.open { background: rgba(0,0,0,0.05);      color: #999; }
             .tp-pill.sl   { background: rgba(239,83,80,0.15);  color: #c62828; font-style: italic; }
-            .zone-ru-row  { font-size: 0.78em; color: #5a6a8a; display: flex; gap: 12px; }
-            .zone-ru-lbl  { color: #bbb; margin-right: 2px; }
+            .zone-pnl-row {
+                font-size: 0.78em; color: #5a6a8a; display: flex; gap: 12px; margin-top: 3px;
+            }
+            .zone-pnl-lbl { color: #bbb; margin-right: 4px; }
         </style>
     </head>
     <body>
@@ -625,7 +645,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         const prefix = hasOpen ? '<span style="color:#aaa;font-size:0.85em;">~</span>' : '';
                         span.innerHTML = prefix + fmtPnl(r.totalPnl, true);
                     }
-                    // TP pills + R/U breakdown in detail row
+                    // TP pills + P&L breakdown in detail row
                     if (detail) {
                         let pills = '';
                         tps.forEach((tp, i) => {
@@ -638,15 +658,23 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                             }
                         });
                         if (broken) pills += '<span class="tp-pill sl">SL</span>';
+                        // Update status badge to "Closed" when all TPs hit on active zone
+                        const statusEl = document.querySelector('.zone-status[data-dat-status="' + z.detected_at + '"]');
+                        if (statusEl && !broken && allTpsHit) {
+                            statusEl.textContent = 'Closed';
+                            statusEl.className = 'zone-status st-closed';
+                        }
                         const rStr = fmtPnl(r.realizedPnl, false);
                         const uStr = r.unrealizedPnl !== 0
                             ? fmtPnl(r.unrealizedPnl, false)
                             : '<span style="color:#ccc;">\u2014</span>';
                         detail.innerHTML =
+                            '<div class="zone-detail-header">' +
                             '<div class="zone-tp-row">' + pills + '</div>' +
-                            '<div class="zone-ru-row">' +
-                            '<span><span class="zone-ru-lbl">R</span>' + rStr + '</span>' +
-                            '<span><span class="zone-ru-lbl">U</span>' + uStr + '</span>' +
+                            '</div>' +
+                            '<div class="zone-pnl-row">' +
+                            '<span><span class="zone-pnl-lbl">Realized</span>' + rStr + '</span>' +
+                            '<span><span class="zone-pnl-lbl">Unrealized</span>' + uStr + '</span>' +
                             '</div>';
                         detail.classList.add('visible');
                     }
@@ -658,25 +686,25 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 }
                 function pnlCell(val) {
                     const s = val !== null ? fmtPnl(val, false) : '<span style="color:#ccc;">'+dash+'</span>';
-                    return '<td style="padding:2px 0 2px 6px;font-family:monospace;text-align:right;">'+s+'</td>';
+                    return '<td style="padding:2px 0 2px 6px;font-family:monospace;text-align:right;vertical-align:middle;">'+s+'</td>';
                 }
                 // TP hit-rate cells for a group
                 function tpRateCells(mags) {
-                    if (!mags.length) return tps.map(() => '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;">—</td>').join('');
+                    if (!mags.length) return tps.map(() => '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;vertical-align:middle;">—</td>').join('');
                     return tps.map((tp, i) => {
                         const pct = Math.round(mags.filter(m => m >= tp.mag).length / mags.length * 100);
                         const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
-                        return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';">TP'+(i+1)+' '+pct+'%</td>';
+                        return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
                     }).join('');
                 }
                 function groupRow(label, labelColor, mags, pnls, total) {
                     const cnt    = mags.length;
                     const rowPct = total > 0 ? Math.round(cnt / total * 100) : 0;
                     return '<tr>' +
-                        '<td style="padding:4px 8px 4px 0;white-space:nowrap;">' +
+                        '<td style="padding:4px 8px 4px 0;white-space:nowrap;vertical-align:middle;">' +
                         '<span style="font-size:0.74em;font-weight:700;color:'+labelColor+';">'+label+'</span>' +
                         '</td>' +
-                        '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;white-space:nowrap;">' +
+                        '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;white-space:nowrap;vertical-align:middle;">' +
                         cnt + ' <span style="color:#aaa;font-size:0.88em;">('+rowPct+'%)</span>' +
                         '</td>' +
                         tpRateCells(mags) +
@@ -684,32 +712,39 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         '</tr>';
                 }
                 const untestedTpCells = tps.map(() =>
-                    '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;">—</td>'
+                    '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;vertical-align:middle;">—</td>'
                 ).join('');
                 const untestedPct = totalZones > 0 ? Math.round(untestedCount / totalZones * 100) : 0;
                 const untestedRow = '<tr>' +
-                    '<td style="padding:4px 8px 4px 0;"><span style="font-size:0.74em;font-weight:700;color:#ccc;">Untested</span></td>' +
-                    '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;">' +
+                    '<td style="padding:4px 8px 4px 0;vertical-align:middle;"><span style="font-size:0.74em;font-weight:700;color:#ccc;">Untested</span></td>' +
+                    '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;vertical-align:middle;">' +
                     untestedCount + ' <span style="color:#aaa;font-size:0.88em;">('+untestedPct+'%)</span></td>' +
                     untestedTpCells +
-                    '<td style="padding:2px 0 2px 6px;color:#ddd;text-align:right;">'+dash+'</td>' +
+                    '<td style="padding:2px 0 2px 6px;color:#ddd;text-align:right;vertical-align:middle;">'+dash+'</td>' +
                     '</tr>';
                 const totalPnl  = filled > 0 ? (sumRealized + sumUnrealized) / filled : null;
                 const totalTpCells = tps.map((tp, i) => {
                     const allMags = [...brokenMags, ...closedMags, ...openMags];
                     const pct = allMags.length ? Math.round(allMags.filter(m => m >= tp.mag).length / allMags.length * 100) : 0;
                     const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
-                    return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';">TP'+(i+1)+' '+pct+'%</td>';
+                    return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
                 }).join('');
                 const totalRow = '<tr style="border-top:1px solid #eee;">' +
-                    '<td style="padding:6px 8px 4px 0;"><span style="font-size:0.74em;font-weight:700;color:#333;">Total</span></td>' +
-                    '<td style="padding:6px 8px 4px 0;font-family:monospace;font-size:0.82em;font-weight:700;color:#333;">' + totalZones + '</td>' +
+                    '<td style="padding:6px 8px 4px 0;vertical-align:middle;"><span style="font-size:0.74em;font-weight:700;color:#333;">Total</span></td>' +
+                    '<td style="padding:6px 8px 4px 0;font-family:monospace;font-size:0.82em;font-weight:700;color:#333;vertical-align:middle;">' + totalZones + '</td>' +
                     totalTpCells +
                     pnlCell(totalPnl) +
+                    '</tr>';
+                const headerRow = '<tr style="border-bottom:1px solid #ddd;">' +
+                    '<td style="padding:4px 8px 4px 0;font-size:0.68em;font-weight:600;color:#888;vertical-align:middle;">Case</td>' +
+                    '<td style="padding:4px 8px 4px 0;font-size:0.68em;font-weight:600;color:#888;vertical-align:middle;"># Zones</td>' +
+                    tps.map((_, i) => '<td style="padding:4px 6px 4px 0;font-size:0.68em;font-weight:600;color:#888;vertical-align:middle;">TP'+(i+1)+'</td>').join('') +
+                    '<td style="padding:4px 0 4px 6px;font-size:0.68em;font-weight:600;color:#888;text-align:right;vertical-align:middle;">P&amp;L</td>' +
                     '</tr>';
                 if (resultsEl) resultsEl.innerHTML =
                     '<div class="ap-section">' +
                     '<table style="width:100%;border-collapse:collapse;">' +
+                    headerRow +
                     groupRow('Hit SL',   '#d32f2f', brokenMags, brokenPnls, totalZones) +
                     groupRow('Closed',   '#1a9188', closedMags, closedPnls, totalZones) +
                     groupRow('Open',     '#888',    openMags,   openPnls,   totalZones) +
@@ -761,11 +796,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 document.getElementById('fs-accuracy-summary').innerHTML =
                     '<div class="ap-section">' +
                     '<div class="ap-title">Zone Performance</div>' +
-                    '<div class="ap-badge-row">' +
-                    '<span class="ap-badge grn">&#x25CF; ' + (summary.active||0) + ' active</span>' +
-                    '<span class="ap-badge red">&#x2717; ' + (summary.broken||0) + ' broken</span>' +
-                    '<span class="ap-badge gry">&#x2014; ' + (summary.untested||0) + ' untested</span>' +
-                    '</div></div>';
+                    '</div>';
 
                 const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                 function fmtTs(ts) {
@@ -780,8 +811,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const price    = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
                     const mag      = p2.max_magnitude !== null && p2.max_magnitude !== undefined
                                      ? `<span class="zone-mag">${p2.max_magnitude}x</span>` : '';
-                    const brokenMark = p2.outcome === 'broken'
-                                     ? ' <span style="color:#ef5350;font-weight:700;font-size:0.85em;">\u2717</span>' : '';
+                    const statusCls = p2.outcome === 'broken' ? 'st-sl'
+                                    : p2.outcome === 'active' ? 'st-open' : 'st-untested';
+                    const statusLbl = p2.outcome === 'broken' ? 'Hit SL'
+                                    : p2.outcome === 'active' ? 'Open' : 'Untested';
                     const gap      = acc.entry === 'gap'
                                      ? ' <span style="color:#354060;font-size:0.78em;">gap</span>' : '';
                     const detected = fmtTs(z.detected_at);
@@ -790,7 +823,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     return `<div class="acc-zone-row out-${p2.outcome}" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}">
                         <div style="display:flex;align-items:center;justify-content:space-between;">
                             <span><span class="zone-dir ${isSupport?'sup':'res'}">${isSupport?'\u25B2 S':'\u25BC R'}</span><span class="zone-price">${price}</span>${gap}</span>
-                            <span>${mag}${brokenMark}</span>
+                            <span style="display:flex;align-items:center;gap:6px;">${mag}<span class="zone-status ${statusCls}" data-dat-status="${z.detected_at}">${statusLbl}</span></span>
                         </div>
                         <div class="zone-meta">
                             <span>${detected}</span>
