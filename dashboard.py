@@ -307,6 +307,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid #eee;"></div>
                 </div>
                 <div id="fs-accuracy-panel" style="width:300px;overflow-y:auto;border-left:1px solid #ddd;background:#fafafa;padding:8px;font-size:0.8em;flex-shrink:0;">
+                    <div id="fs-tp-section" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;"></div>
+                    <div id="fs-tp-results" style="margin-bottom:6px;border-bottom:1px solid #ddd;padding-bottom:6px;font-size:0.9em;min-height:1.8em;"></div>
                     <div id="fs-accuracy-summary" style="margin-bottom:8px;border-bottom:1px solid #ddd;padding-bottom:6px;font-weight:bold;"></div>
                     <div id="fs-accuracy-list"></div>
                 </div>
@@ -434,6 +436,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             let fsChartInstance = null;
             let fsScatterInstance = null;
             let fsCandleSeriesRef = null;
+            let currentPanelSymbol = null;
             const gridCharts = {};
 
             function resetChart(symbol, e) {
@@ -469,11 +472,110 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 return p.toFixed(5);
             }
 
+            // ── Phase 3: TP simulator ─────────────────────────────────────
+            function defaultTps() {
+                return [{mag:1.0, pct:50}, {mag:2.0, pct:30}, {mag:4.0, pct:20}];
+            }
+            function getTpConfig() {
+                try { const s = localStorage.getItem('tpConfig'); return s ? JSON.parse(s) : null; }
+                catch { return null; }
+            }
+            function saveTpConfig(tps) {
+                try { localStorage.setItem('tpConfig', JSON.stringify(tps)); } catch {}
+            }
+            function readTpInputs() {
+                return [1,2,3].map(i => ({
+                    mag: parseFloat(document.getElementById('tp-mag-'+i)?.value) || 0,
+                    pct: parseFloat(document.getElementById('tp-pct-'+i)?.value) || 0
+                }));
+            }
+            function calcZonePnL(zone, tps) {
+                const p2 = zone.accuracy?.phase2;
+                if (!p2 || p2.outcome === 'untested') return null;
+                const mag    = p2.max_magnitude ?? 0;
+                const broken = p2.outcome === 'broken';
+                let pnl = 0, hasUnrealised = false;
+                for (const tp of tps) {
+                    const frac = tp.pct / 100;
+                    if (mag >= tp.mag)   pnl += frac * tp.mag;
+                    else if (broken)     pnl += frac * (-1.0);
+                    else                 hasUnrealised = true;
+                }
+                return {pnl, hasUnrealised};
+            }
+            function updateTPResults(symbol, tps) {
+                const total = tps.reduce((s,t) => s + t.pct, 0);
+                const totalEl = document.getElementById('fs-tp-total');
+                if (totalEl) {
+                    totalEl.textContent = 'Total: ' + total + '%';
+                    totalEl.style.color = Math.abs(total - 100) < 0.01 ? '#2a8a2a' : '#c00';
+                }
+                const resultsEl = document.getElementById('fs-tp-results');
+                if (Math.abs(total - 100) > 0.01) {
+                    if (resultsEl) resultsEl.innerHTML = '<span style="color:#c00;">Position % must sum to 100%</span>';
+                    document.querySelectorAll('.zone-pnl').forEach(el => el.textContent = '');
+                    return;
+                }
+                const zones = (allResults[symbol]?.results || []).filter(z => z.result !== 'nil');
+                let totalPnl = 0, wins = 0, losses = 0, excluded = 0;
+                zones.forEach(z => {
+                    const r    = calcZonePnL(z, tps);
+                    const span = document.querySelector('.zone-pnl[data-dat="' + z.detected_at + '"]');
+                    if (!r) { if (span) span.innerHTML = ''; return; }
+                    if (r.hasUnrealised) {
+                        excluded++;
+                        if (span) span.innerHTML = '<span style="color:#aaa;font-size:0.85em;">open</span>';
+                        return;
+                    }
+                    totalPnl += r.pnl;
+                    if (r.pnl > 0) wins++; else losses++;
+                    if (span) {
+                        const c = r.pnl > 0 ? '#2a8a2a' : '#c00';
+                        span.innerHTML = '<span style="color:'+c+';font-weight:bold;">'+(r.pnl>=0?'+':'')+r.pnl.toFixed(2)+'x</span>';
+                    }
+                });
+                const filled = wins + losses;
+                const avg    = filled > 0 ? totalPnl / filled : null;
+                const avgStr = avg !== null
+                    ? '<b style="color:'+(avg>=0?'#2a8a2a':'#c00')+'">'+(avg>=0?'+':'')+avg.toFixed(2)+'x</b>/trade'
+                    : '\u2014';
+                if (resultsEl) resultsEl.innerHTML =
+                    'Avg P&amp;L: ' + avgStr + '<br>' +
+                    '&#x1F7E2; Win: ' + wins + ' &nbsp; &#x1F534; Loss: ' + losses +
+                    (excluded > 0 ? ' &nbsp; &#x26AB; ' + excluded + ' open' : '');
+            }
+            function onTpChange() {
+                const tps = readTpInputs();
+                saveTpConfig(tps);
+                if (currentPanelSymbol) updateTPResults(currentPanelSymbol, tps);
+            }
+            function renderTPSection() {
+                const tps  = getTpConfig() || defaultTps();
+                const total = tps.reduce((s,t) => s + t.pct, 0);
+                const rows = tps.map((tp, i) =>
+                    '<tr>' +
+                    '<td style="padding:2px 4px;color:#777;white-space:nowrap;">TP'+(i+1)+'</td>' +
+                    '<td style="padding:2px 4px;"><input id="tp-mag-'+(i+1)+'" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()" style="width:52px;padding:2px 4px;font-size:0.9em;border:1px solid #ccc;border-radius:3px;"></td>' +
+                    '<td style="padding:2px 4px;"><input id="tp-pct-'+(i+1)+'" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()" style="width:44px;padding:2px 4px;font-size:0.9em;border:1px solid #ccc;border-radius:3px;"> %</td>' +
+                    '</tr>'
+                ).join('');
+                document.getElementById('fs-tp-section').innerHTML =
+                    '<div style="font-weight:bold;margin-bottom:4px;">TP Settings</div>' +
+                    '<table style="width:100%;border-collapse:collapse;">' +
+                    '<tr style="font-size:0.82em;color:#aaa;"><td></td><td style="padding:2px 4px;">Target Mag</td><td style="padding:2px 4px;">Position</td></tr>' +
+                    rows + '</table>' +
+                    '<div id="fs-tp-total" style="text-align:right;font-size:0.82em;margin-top:2px;color:'+(Math.abs(total-100)<0.01?'#2a8a2a':'#c00')+';">Total: '+total+'%</div>';
+            }
+            // ──────────────────────────────────────────────────────────────
+
             function renderAccuracyPanel(symbol) {
                 const data    = allResults[symbol];
                 if (!data) return;
+                currentPanelSymbol = symbol;
                 const summary = data.accuracy_summary || {};
                 const zones   = (data.results || []).filter(z => z.result !== 'nil');
+
+                renderTPSection();
 
                 document.getElementById('fs-accuracy-summary').innerHTML =
                     `&#x1F7E2; ${summary.active || 0} active &nbsp; &#x1F534; ${summary.broken || 0} broken &nbsp; &#x26AA; ${summary.untested || 0} untested`;
@@ -492,7 +594,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const price    = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
                     const icon     = P2_ICON[p2.outcome] || '&#x26AA;';
                     const mag      = p2.max_magnitude !== null && p2.max_magnitude !== undefined
-                                     ? `<span style="color:#555;margin-left:6px;">max ${p2.max_magnitude}x</span>` : '';
+                                     ? `<span style="color:#999;margin-left:4px;font-size:0.85em;">${p2.max_magnitude}x</span>` : '';
                     const broken   = p2.outcome === 'broken'
                                      ? ' <span style="color:#c00;font-weight:bold;">\u2717</span>' : '';
                     const gap      = acc.entry === 'gap'
@@ -502,9 +604,14 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
                     return `<div class="acc-zone-row" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}" style="padding:4px 2px;border-bottom:1px solid #eee;cursor:default;">
                         ${icon} ${label} <span style="font-family:monospace;">${price}</span>${gap}${broken}${mag}
-                        <div style="color:#aaa;font-size:0.9em;padding-left:18px;">${detected}</div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding-left:18px;">
+                            <span style="color:#aaa;font-size:0.85em;">${detected}</span>
+                            <span class="zone-pnl" data-dat="${z.detected_at}"></span>
+                        </div>
                     </div>`;
                 }).join('');
+
+                updateTPResults(symbol, getTpConfig() || defaultTps());
             }
 
             function buildScatterChart(container, symbol) {
