@@ -593,18 +593,23 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     fsChartInstance.subscribeCrosshairMove(param => {
                         const rows = document.querySelectorAll('.acc-zone-row');
                         if (!param.point || !param.time) {
-                            rows.forEach(el => el.style.background = '');
+                            rows.forEach(el => { el.style.background = ''; el.style.display = ''; });
                             return;
                         }
                         const price = fsCandleSeriesRef ? fsCandleSeriesRef.coordinateToPrice(param.point.y) : null;
-                        if (price === null) { rows.forEach(el => el.style.background = ''); return; }
+                        if (price === null) { rows.forEach(el => { el.style.background = ''; el.style.display = ''; }); return; }
                         const t = typeof param.time === 'number' ? param.time : Math.floor(new Date(param.time).getTime() / 1000);
+                        const matched = new Set();
                         rows.forEach(el => {
                             const lo    = parseFloat(el.dataset.low);
                             const hi    = parseFloat(el.dataset.high);
                             const start = parseInt(el.dataset.start);
                             const end   = parseInt(el.dataset.end);
-                            el.style.background = (price >= lo && price <= hi && t >= start && t <= end) ? '#fff9c4' : '';
+                            if (price >= lo && price <= hi && t >= start && t <= end) matched.add(el);
+                        });
+                        rows.forEach(el => {
+                            el.style.background = matched.has(el) ? '#fff9c4' : '';
+                            el.style.display    = matched.size > 0 && !matched.has(el) ? 'none' : '';
                         });
                     });
                 }
