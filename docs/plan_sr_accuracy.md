@@ -146,19 +146,19 @@ Phase 2 produces `max_magnitude` per zone — the maximum favorable excursion (i
 
 ### User input
 
-The user configures a TP table in the accuracy panel. Each row has:
-- **Level** — target excursion in zone-widths (e.g. `1.5x`)
-- **Size** — percentage of position closed at this level (e.g. `40%`)
+Three fixed TP fields in the accuracy panel. Each has:
+- **Target Magnitude** — how far price must move in the favorable direction, in zone-widths (e.g. `1.5x`)
+- **Position %** — percentage of the position closed at this level (e.g. `40%`)
 
-Constraint: all sizes must sum to exactly **100%**. The UI enforces this with live validation and shows the running total. Rows can be added or removed freely.
+Constraint: the three Position % values must sum to exactly **100%**. The UI enforces this with live validation showing the running total. Fields update results immediately on change.
 
 Example configuration:
 
-| TP | Level | Size |
-|----|-------|------|
-| 1  | 1.0x  | 50%  |
-| 2  | 2.0x  | 30%  |
-| 3  | 4.0x  | 20%  |
+| TP | Target Magnitude | Position % |
+|----|-----------------|------------|
+| 1  | 1.0x            | 50%        |
+| 2  | 2.0x            | 30%        |
+| 3  | 4.0x            | 20%        |
 
 ### P&L calculation
 
@@ -190,16 +190,17 @@ Across all filled zones:
 The TP table and summary appear at the top of the accuracy panel, above the zone list:
 
 ```
-┌─────────────────────────────────┐
-│ TP Settings          [+ Add TP] │
-│ TP1  1.0x   50%  [−]            │
-│ TP2  2.0x   30%  [−]            │
-│ TP3  4.0x   20%  [−]            │
-│ Total: 100% ✓                   │
-├─────────────────────────────────┤
-│ Avg P&L: +0.42x/trade           │
-│ 🟢 Win: 112  🔴 Loss: 71  ⚫ 6  │
-└─────────────────────────────────┘
+┌──────────────────────────────────────┐
+│ TP Settings                          │
+│      Target Mag    Position %        │
+│ TP1  [  1.0x  ]   [  50%  ]         │
+│ TP2  [  2.0x  ]   [  30%  ]         │
+│ TP3  [  4.0x  ]   [  20%  ]         │
+│                   Total: 100% ✓      │
+├──────────────────────────────────────┤
+│ Avg P&L: +0.42x/trade                │
+│ 🟢 Win: 112  🔴 Loss: 71  ⚫ 6      │
+└──────────────────────────────────────┘
 
 🟢 ▼ R  1.2340–1.2360   +0.80x
 🔴 ▲ S  1.2280–1.2300   −0.20x  ✗
