@@ -264,7 +264,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             #fs-accuracy-panel {
                 background: #fff; color: #333;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                font-size: 0.82em; border-left: 1px solid #e0e0e0;
+                font-size: 0.92em; border-left: 1px solid #e0e0e0;
             }
             .ap-section { padding: 10px 12px; border-bottom: 1px solid #eee; }
             .ap-title {
@@ -374,7 +374,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     <div id="fs-chart-container" style="flex:7;position:relative;min-height:0;"></div>
                     <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid #eee;"></div>
                 </div>
-                <div id="fs-accuracy-panel" style="width:300px;overflow-y:auto;flex-shrink:0;">
+                <div id="fs-accuracy-panel" style="width:380px;overflow-y:auto;flex-shrink:0;">
                     <div id="fs-tp-section"></div>
                     <div id="fs-tp-results"></div>
                     <div id="fs-accuracy-summary"></div>
@@ -596,13 +596,15 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     return;
                 }
                 const zones = (allResults[symbol]?.results || []).filter(z => z.result !== 'nil');
-                let sumRealized = 0, sumUnrealized = 0, wins = 0, losses = 0, filled = 0;
+                let sumRealized = 0, sumUnrealized = 0, wins = 0, losses = 0, filled = 0, untestedCount = 0;
                 const brokenMags = [], closedMags = [], openMags = [];
+                const brokenPnls = [], closedPnls = [], openPnls = [];
                 zones.forEach(z => {
                     const r      = calcZonePnL(z, tps);
                     const span   = document.querySelector('.zone-pnl[data-dat="' + z.detected_at + '"]');
                     const detail = document.querySelector('.zone-tp-detail[data-dat="' + z.detected_at + '"]');
                     if (!r) {
+                        untestedCount++;
                         if (span)   span.innerHTML   = '';
                         if (detail) { detail.innerHTML = ''; detail.classList.remove('visible'); }
                         return;
@@ -610,12 +612,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     filled++;
                     sumRealized   += r.realizedPnl;
                     sumUnrealized += r.unrealizedPnl;
-                    const mag    = z.accuracy?.phase2?.max_magnitude ?? 0;
-                    const broken = z.accuracy?.phase2?.outcome === 'broken';
+                    const mag       = z.accuracy?.phase2?.max_magnitude ?? 0;
+                    const broken    = z.accuracy?.phase2?.outcome === 'broken';
                     const allTpsHit = tps.every(tp => mag >= tp.mag);
-                    if (broken)              brokenMags.push(mag);
-                    else if (allTpsHit)      closedMags.push(mag);
-                    else if (r.isActive)     openMags.push(mag);
+                    if (broken)          { brokenMags.push(mag); brokenPnls.push(r.totalPnl); }
+                    else if (allTpsHit)  { closedMags.push(mag); closedPnls.push(r.totalPnl); }
+                    else if (r.isActive) { openMags.push(mag);   openPnls.push(r.totalPnl);   }
                     const hasOpen = r.isActive && r.unrealizedPnl !== 0;
                     if (r.totalPnl > 0) wins++; else losses++;
                     // Total P&L in zone-meta row
@@ -649,28 +651,27 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         detail.classList.add('visible');
                     }
                 });
-                const avgR = filled > 0 ? sumRealized   / filled : null;
-                const avgU = filled > 0 ? sumUnrealized / filled : null;
-                const avgT = filled > 0 ? (sumRealized + sumUnrealized) / filled : null;
+                const totalZones = filled + untestedCount;
                 const dash = '\u2014';
-                function avgRow(label, val, dimmed) {
-                    const valStr = val !== null ? fmtPnl(val, false) : '<span style="color:#aaa;">'+dash+'</span>';
-                    return '<div style="display:flex;justify-content:space-between;align-items:baseline;padding:2px 0;">' +
-                        '<span style="font-size:0.78em;color:'+(dimmed?'#bbb':'#5a6a8a')+';">'+label+'</span>' +
-                        '<span style="font-family:monospace;font-size:0.95em;">'+valStr+'</span></div>';
+                function avgPnl(pnls) {
+                    return pnls.length ? pnls.reduce((s,v) => s+v, 0) / pnls.length : null;
+                }
+                function pnlCell(val) {
+                    const s = val !== null ? fmtPnl(val, false) : '<span style="color:#ccc;">'+dash+'</span>';
+                    return '<td style="padding:2px 0 2px 6px;font-family:monospace;text-align:right;">'+s+'</td>';
                 }
                 // TP hit-rate cells for a group
                 function tpRateCells(mags) {
+                    if (!mags.length) return tps.map(() => '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;">—</td>').join('');
                     return tps.map((tp, i) => {
-                        const pct = mags.length ? Math.round(mags.filter(m => m >= tp.mag).length / mags.length * 100) : 0;
+                        const pct = Math.round(mags.filter(m => m >= tp.mag).length / mags.length * 100);
                         const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
                         return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';">TP'+(i+1)+' '+pct+'%</td>';
                     }).join('');
                 }
-                function groupRow(label, labelColor, mags) {
-                    if (!filled) return '';
+                function groupRow(label, labelColor, mags, pnls, total) {
                     const cnt    = mags.length;
-                    const rowPct = Math.round(cnt / filled * 100);
+                    const rowPct = total > 0 ? Math.round(cnt / total * 100) : 0;
                     return '<tr>' +
                         '<td style="padding:4px 8px 4px 0;white-space:nowrap;">' +
                         '<span style="font-size:0.74em;font-weight:700;color:'+labelColor+';">'+label+'</span>' +
@@ -679,19 +680,41 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         cnt + ' <span style="color:#aaa;font-size:0.88em;">('+rowPct+'%)</span>' +
                         '</td>' +
                         tpRateCells(mags) +
+                        pnlCell(avgPnl(pnls)) +
                         '</tr>';
                 }
+                const untestedTpCells = tps.map(() =>
+                    '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;">—</td>'
+                ).join('');
+                const untestedPct = totalZones > 0 ? Math.round(untestedCount / totalZones * 100) : 0;
+                const untestedRow = '<tr>' +
+                    '<td style="padding:4px 8px 4px 0;"><span style="font-size:0.74em;font-weight:700;color:#ccc;">Untested</span></td>' +
+                    '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;">' +
+                    untestedCount + ' <span style="color:#aaa;font-size:0.88em;">('+untestedPct+'%)</span></td>' +
+                    untestedTpCells +
+                    '<td style="padding:2px 0 2px 6px;color:#ddd;text-align:right;">'+dash+'</td>' +
+                    '</tr>';
+                const totalPnl  = filled > 0 ? (sumRealized + sumUnrealized) / filled : null;
+                const totalTpCells = tps.map((tp, i) => {
+                    const allMags = [...brokenMags, ...closedMags, ...openMags];
+                    const pct = allMags.length ? Math.round(allMags.filter(m => m >= tp.mag).length / allMags.length * 100) : 0;
+                    const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
+                    return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';">TP'+(i+1)+' '+pct+'%</td>';
+                }).join('');
+                const totalRow = '<tr style="border-top:1px solid #eee;">' +
+                    '<td style="padding:6px 8px 4px 0;"><span style="font-size:0.74em;font-weight:700;color:#333;">Total</span></td>' +
+                    '<td style="padding:6px 8px 4px 0;font-family:monospace;font-size:0.82em;font-weight:700;color:#333;">' + totalZones + '</td>' +
+                    totalTpCells +
+                    pnlCell(totalPnl) +
+                    '</tr>';
                 if (resultsEl) resultsEl.innerHTML =
                     '<div class="ap-section">' +
-                    avgRow('Realized / trade', avgR, false) +
-                    avgRow('Unrealized / trade', avgU, true) +
-                    '<div style="border-top:1px solid #eee;margin:4px 0;"></div>' +
-                    avgRow('Total / trade', avgT, false) +
-                    '<div style="border-top:1px solid #eee;margin:8px 0 4px;"></div>' +
                     '<table style="width:100%;border-collapse:collapse;">' +
-                    groupRow('Hit SL', '#d32f2f', brokenMags) +
-                    groupRow('Closed', '#1a9188', closedMags) +
-                    groupRow('Open', '#888', openMags) +
+                    groupRow('Hit SL',   '#d32f2f', brokenMags, brokenPnls, totalZones) +
+                    groupRow('Closed',   '#1a9188', closedMags, closedPnls, totalZones) +
+                    groupRow('Open',     '#888',    openMags,   openPnls,   totalZones) +
+                    untestedRow +
+                    totalRow +
                     '</table>' +
                     '</div>';
             }
