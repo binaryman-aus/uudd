@@ -658,10 +658,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                              statusEl.textContent = 'Closed';
                              statusEl.className = 'zone-status st-closed';
                          }
-                         const rStr = fmtPnl(r.realizedPnl, false);
-                         const uStr = r.unrealizedPnl !== 0
-                             ? fmtPnl(r.unrealizedPnl, false)
-                             : '<span style="color:#ccc;">\u2014</span>';
+                          const rStr = fmtPnl(r.realizedPnl, false);
+                          const uStr = r.unrealizedPnl !== 0
+                              ? fmtPnl(r.unrealizedPnl, false)
+                              : '<span style="color:#ccc;">&#8209;</span>';
                          detail.innerHTML =
                              '<div class="zone-detail-row">' +
                              '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
