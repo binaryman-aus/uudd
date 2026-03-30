@@ -136,28 +136,80 @@ Hover behaviour carried forward from Phase 1. The highlighted sidebar entry expa
 
 ---
 
-## Phase 3 — Zone Strength Score *(future enhancement)*
+## Phase 3 — Multi-TP Strategy Simulator *(future enhancement)*
 
-Composite score per zone combining:
-- Touch count before detection (historical `prev_matches` — already available)
-- Max favorable excursion magnitude (from Phase 2)
-- Time-to-first-test (fast retest = high-demand zone)
-- Whether the position was ultimately stopped out
+Simulate a real trading strategy by splitting position size across multiple take-profit levels. Calculates total P&L across all evaluated zones without any backend changes — all data needed is already available from Phase 2.
+
+### Why frontend-only works
+
+Phase 2 produces `max_magnitude` per zone — the maximum favorable excursion (in zone-widths) before the SL was hit or data ended. Because price moves continuously, if `max_magnitude >= TP_level` then that TP was necessarily reached on the path up/down. No bar-by-bar replay is needed.
+
+### User input
+
+The user configures a TP table in the accuracy panel. Each row has:
+- **Level** — target excursion in zone-widths (e.g. `1.5x`)
+- **Size** — percentage of position closed at this level (e.g. `40%`)
+
+Constraint: all sizes must sum to exactly **100%**. The UI enforces this with live validation and shows the running total. Rows can be added or removed freely.
+
+Example configuration:
+
+| TP | Level | Size |
+|----|-------|------|
+| 1  | 1.0x  | 50%  |
+| 2  | 2.0x  | 30%  |
+| 3  | 4.0x  | 20%  |
+
+### P&L calculation
+
+For each zone with a fill (outcome ≠ untested):
+
+- **Risk** = 1 zone-width (distance from entry to SL), used as the common unit
+- For each TP row: if `max_magnitude >= tp_level` → that slice was closed at profit `+tp_level`
+- For each TP row: if `max_magnitude < tp_level` AND zone is **broken** → that slice was closed at SL = `−1.0x`
+- For each TP row: if `max_magnitude < tp_level` AND zone is **active** → position still open, excluded from realised P&L
+
+P&L per zone (broken example with config above, max_magnitude = 1.3x):
+```
+TP1 hit (1.0x ≤ 1.3x):  +1.0 × 50% = +0.50x
+TP2 miss (2.0x > 1.3x): −1.0 × 30% = −0.30x
+TP3 miss (4.0x > 1.3x): −1.0 × 20% = −0.20x
+Zone P&L = +0.50 − 0.30 − 0.20 = 0.00x
+```
+
+### Summary metrics
+
+Across all filled zones:
+- **Total P&L** — sum of all zone P&Ls (in zone-widths per trade, averaged)
+- **Win zones** — zones where net P&L > 0
+- **Loss zones** — zones where net P&L ≤ 0
+- **Excluded** — active zones with unrealised TPs (counted separately)
 
 ### Result Presentation
 
-```
-🟢 5 active   🔴 3 broken   ⚪ 2 untested
+The TP table and summary appear at the top of the accuracy panel, above the zone list:
 
-⭐⭐⭐⭐⭐ 🟢 ▼ R  1.2340–1.2360   score: 92   max 2.3x
-⭐⭐⭐    🔴 ▲ S  1.2280–1.2300   score: 61   max 1.1x  ✗
-⭐⭐      ⚪ ▼ R  1.2410–1.2430   score: 34   —
+```
+┌─────────────────────────────────┐
+│ TP Settings          [+ Add TP] │
+│ TP1  1.0x   50%  [−]            │
+│ TP2  2.0x   30%  [−]            │
+│ TP3  4.0x   20%  [−]            │
+│ Total: 100% ✓                   │
+├─────────────────────────────────┤
+│ Avg P&L: +0.42x/trade           │
+│ 🟢 Win: 112  🔴 Loss: 71  ⚫ 6  │
+└─────────────────────────────────┘
+
+🟢 ▼ R  1.2340–1.2360   +0.80x
+🔴 ▲ S  1.2280–1.2300   −0.20x  ✗
+⚪ ▼ R  1.2410–1.2430   —
 ...
 ```
 
-Zones sorted by score descending. The highest-scoring active zone is also highlighted in the grid chart header.
+The zone list switches from showing `max Nx` to showing the net P&L for that zone under the active TP configuration. Updates live as the user edits the TP table.
 
-Hover behaviour carried forward from Phase 2. The highlighted entry additionally shows the score breakdown (touch count, max magnitude, time-to-first-test, broken/active) as a tooltip-style expansion.
+Hover behaviour carried forward from Phase 2.
 
 ---
 
