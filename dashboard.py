@@ -665,7 +665,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                           detail.innerHTML =
                               '<div class="zone-detail-row">' +
                               '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
-                              '<div class="zone-tp-row" style="display:flex;align-items:center;flex:1;min-width:150px;">' + pills + '</div>' +
+                              '<div class="zone-tp-row" style="display:flex;align-items:center;flex:1;min-width:200px;">' + pills + '</div>' +
                               '<div class="zone-pnl-row" style="display:flex;align-items:center;flex:1;min-width:150px;text-align:right;">' +
                               '<span><span class="zone-pnl-lbl">Real.</span>' + rStr + '</span>' +
                               '<span><span class="zone-pnl-lbl">Unrreal.</span>' + uStr + '</span>' +
