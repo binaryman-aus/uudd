@@ -639,39 +639,41 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     else if (r.isActive) { openMags.push(mag);   openPnls.push(r.totalPnl);   }
                     const hasOpen = r.isActive && r.unrealizedPnl !== 0;
                     if (r.totalPnl > 0) wins++; else losses++;
-                    // TP pills + P&L breakdown in detail row
-                    if (detail) {
-                        let pills = '';
-                        tps.forEach((tp, i) => {
-                            if (mag >= tp.mag) {
-                                pills += '<span class="tp-pill hit">TP'+(i+1)+' \u2713</span>';
-                            } else if (broken) {
-                                pills += '<span class="tp-pill miss">TP'+(i+1)+' \u2717</span>';
-                            } else {
-                                pills += '<span class="tp-pill open">TP'+(i+1)+' \u007E</span>';
-                            }
-                        });
-                        if (broken) pills += '<span class="tp-pill sl">SL</span>';
-                        // Update status badge to "Closed" when all TPs hit on active zone
-                        const statusEl = document.querySelector('.zone-status[data-dat-status="' + z.detected_at + '"]');
-                        if (statusEl && !broken && allTpsHit) {
-                            statusEl.textContent = 'Closed';
-                            statusEl.className = 'zone-status st-closed';
-                        }
-                        const rStr = fmtPnl(r.realizedPnl, false);
-                        const uStr = r.unrealizedPnl !== 0
-                            ? fmtPnl(r.unrealizedPnl, false)
-                            : '<span style="color:#ccc;">\u2014</span>';
-                        detail.innerHTML =
-                            '<div class="zone-detail-row">' +
-                            '<div class="zone-tp-row">' + pills + '</div>' +
-                            '<div class="zone-pnl-row">' +
-                            '<span><span class="zone-pnl-lbl">Realized</span>' + rStr + '</span>' +
-                            '<span><span class="zone-pnl-lbl">Unrealized</span>' + uStr + '</span>' +
-                            '</div>' +
-                            '</div>';
-                        detail.classList.add('visible');
-                    }
+                         // TP pills + P&L breakdown in detail row
+                     if (detail) {
+                         let pills = '';
+                         tps.forEach((tp, i) => {
+                             if (mag >= tp.mag) {
+                                 pills += '<span class="tp-pill hit">TP'+(i+1)+' \u2713</span>';
+                             } else if (broken) {
+                                 pills += '<span class="tp-pill miss">TP'+(i+1)+' \u2717</span>';
+                             } else {
+                                 pills += '<span class="tp-pill open">TP'+(i+1)+' \u007E</span>';
+                             }
+                         });
+                         if (broken) pills += '<span class="tp-pill sl">SL</span>';
+                         // Update status badge to "Closed" when all TPs hit on active zone
+                         const statusEl = document.querySelector('.zone-status[data-dat-status="' + z.detected_at + '"]');
+                         if (statusEl && !broken && allTpsHit) {
+                             statusEl.textContent = 'Closed';
+                             statusEl.className = 'zone-status st-closed';
+                         }
+                         const rStr = fmtPnl(r.realizedPnl, false);
+                         const uStr = r.unrealizedPnl !== 0
+                             ? fmtPnl(r.unrealizedPnl, false)
+                             : '<span style="color:#ccc;">\u2014</span>';
+                         detail.innerHTML =
+                             '<div class="zone-detail-row">' +
+                             '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">' +
+                             '<div class="zone-tp-row" style="flex:1;min-width:150px;">' + pills + '</div>' +
+                             '<div class="zone-pnl-row" style="flex:1;min-width:150px;text-align:right;">' +
+                             '<span><span class="zone-pnl-lbl">Realized</span>' + rStr + '</span>' +
+                             '<span><span class="zone-pnl-lbl">Unrealized</span>' + uStr + '</span>' +
+                             '</div>' +
+                             '</div>' +
+                             '</div>';
+                         detail.classList.add('visible');
+                     }
                 });
                 const totalZones = filled + untestedCount;
                 const dash = '\u2014';
