@@ -76,6 +76,7 @@ def evaluate_zone_accuracy(zone, df):
                 pass                                   # price never reached zone — untested
             elif bar['high'] < z_high:
                 if bar['low'] < z_low:                 # gapped through entire zone
+                    entry_price = z_high               # virtual entry at zone top
                     p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
                     p2_outcome = 'broken'; p2_mag = 0.0
                 else:
@@ -92,6 +93,7 @@ def evaluate_zone_accuracy(zone, df):
                 pass                                   # price never reached zone — untested
             elif bar['low'] > z_low:
                 if bar['high'] > z_high:               # gapped through entire zone
+                    entry_price = z_low                # virtual entry at zone bottom
                     p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
                     p2_outcome = 'broken'; p2_mag = 0.0
                 else:
@@ -124,6 +126,7 @@ def evaluate_zone_accuracy(zone, df):
         'outcome': p1_outcome,
         'test_bar_time': p1_time,
         'entry': p1_entry,
+        'entry_price': round(entry_price, 2) if entry_price is not None else None,
         'phase2': {
             'outcome': p2_outcome,
             'max_magnitude': round(p2_mag, 2) if p2_mag is not None else None
@@ -318,8 +321,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .zone-dir.sup { background: rgba(38,166,154,0.12); color: #1a9188; }
             .zone-dir.res { background: rgba(239,83,80,0.12);  color: #d32f2f; }
             .zone-price { font-family: monospace; color: #222; font-size: 0.95em; }
-            .zone-meta  { font-size: 0.78em; color: #bbb; margin-top: 3px;
-                          display: flex; justify-content: space-between; align-items: center; }
+            .zone-timestamp { font-size: 0.78em; color: #bbb; }
             .zone-mag   { font-family: monospace; font-size: 0.85em; color: #aaa; }
             .zone-status {
                 font-size: 0.7em; font-weight: 700; padding: 1px 6px; border-radius: 3px;
@@ -331,9 +333,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .zone-status.st-untested { background: rgba(0,0,0,0.04);      color: #bbb; }
             .zone-tp-detail { padding: 4px 10px 6px 12px; display: none; }
             .zone-tp-detail.visible { display: block; }
-            .zone-detail-header {
-                display: flex; align-items: center; justify-content: space-between;
-                margin-bottom: 3px;
+            .zone-detail-row {
+                display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
             }
             .zone-tp-row { display: flex; gap: 4px; flex-wrap: wrap; }
             .tp-pill {
@@ -345,7 +346,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .tp-pill.open { background: rgba(0,0,0,0.05);      color: #999; }
             .tp-pill.sl   { background: rgba(239,83,80,0.15);  color: #c62828; font-style: italic; }
             .zone-pnl-row {
-                font-size: 0.78em; color: #5a6a8a; display: flex; gap: 12px; margin-top: 3px;
+                font-size: 0.78em; color: #5a6a8a; display: flex; gap: 12px;
             }
             .zone-pnl-lbl { color: #bbb; margin-right: 4px; }
         </style>
@@ -621,11 +622,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const brokenPnls = [], closedPnls = [], openPnls = [];
                 zones.forEach(z => {
                     const r      = calcZonePnL(z, tps);
-                    const span   = document.querySelector('.zone-pnl[data-dat="' + z.detected_at + '"]');
                     const detail = document.querySelector('.zone-tp-detail[data-dat="' + z.detected_at + '"]');
                     if (!r) {
                         untestedCount++;
-                        if (span)   span.innerHTML   = '';
                         if (detail) { detail.innerHTML = ''; detail.classList.remove('visible'); }
                         return;
                     }
@@ -640,11 +639,6 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     else if (r.isActive) { openMags.push(mag);   openPnls.push(r.totalPnl);   }
                     const hasOpen = r.isActive && r.unrealizedPnl !== 0;
                     if (r.totalPnl > 0) wins++; else losses++;
-                    // Total P&L in zone-meta row
-                    if (span) {
-                        const prefix = hasOpen ? '<span style="color:#aaa;font-size:0.85em;">~</span>' : '';
-                        span.innerHTML = prefix + fmtPnl(r.totalPnl, true);
-                    }
                     // TP pills + P&L breakdown in detail row
                     if (detail) {
                         let pills = '';
@@ -669,12 +663,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                             ? fmtPnl(r.unrealizedPnl, false)
                             : '<span style="color:#ccc;">\u2014</span>';
                         detail.innerHTML =
-                            '<div class="zone-detail-header">' +
+                            '<div class="zone-detail-row">' +
                             '<div class="zone-tp-row">' + pills + '</div>' +
-                            '</div>' +
                             '<div class="zone-pnl-row">' +
                             '<span><span class="zone-pnl-lbl">Realized</span>' + rStr + '</span>' +
                             '<span><span class="zone-pnl-lbl">Unrealized</span>' + uStr + '</span>' +
+                            '</div>' +
                             '</div>';
                         detail.classList.add('visible');
                     }
@@ -808,7 +802,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const acc      = z.accuracy || {};
                     const p2       = acc.phase2 || { outcome: 'untested', max_magnitude: null };
                     const isSupport = z.result === 'support';
-                    const price    = `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
+                    const isFilled  = p2.outcome === 'active' || p2.outcome === 'broken';
+                    const price    = isFilled && acc.entry_price != null
+                                     ? `${fmtPrice(acc.entry_price)}\u00d7${isSupport ? fmtPrice(z.price_range.low) : fmtPrice(z.price_range.high)}`
+                                     : `${fmtPrice(z.price_range.low)}\u2013${fmtPrice(z.price_range.high)}`;
                     const mag      = p2.max_magnitude !== null && p2.max_magnitude !== undefined
                                      ? `<span class="zone-mag">${p2.max_magnitude}x</span>` : '';
                     const statusCls = p2.outcome === 'broken' ? 'st-sl'
@@ -822,12 +819,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
                     return `<div class="acc-zone-row out-${p2.outcome}" data-low="${z.price_range.low}" data-high="${z.price_range.high}" data-start="${startTs}" data-end="${endTs}">
                         <div style="display:flex;align-items:center;justify-content:space-between;">
-                            <span><span class="zone-dir ${isSupport?'sup':'res'}">${isSupport?'\u25B2 S':'\u25BC R'}</span><span class="zone-price">${price}</span>${gap}</span>
+                            <span style="display:flex;align-items:center;gap:6px;"><span class="zone-dir ${isSupport?'sup':'res'}">${isSupport?'\u25B2 S':'\u25BC R'}</span><span class="zone-timestamp">${detected}</span><span class="zone-price">${price}</span>${gap}</span>
                             <span style="display:flex;align-items:center;gap:6px;">${mag}<span class="zone-status ${statusCls}" data-dat-status="${z.detected_at}">${statusLbl}</span></span>
-                        </div>
-                        <div class="zone-meta">
-                            <span>${detected}</span>
-                            <span class="zone-pnl" data-dat="${z.detected_at}"></span>
                         </div>
                         <div class="zone-tp-detail" data-dat="${z.detected_at}"></div>
                     </div>`;
