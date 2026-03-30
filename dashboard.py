@@ -395,7 +395,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     <div id="fs-chart-container" style="flex:7;position:relative;min-height:0;"></div>
                     <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid #eee;"></div>
                 </div>
-                <div id="fs-accuracy-panel" style="width:380px;overflow-y:auto;flex-shrink:0;">
+                <div id="fs-accuracy-panel" style="width:450px;overflow-y:auto;flex-shrink:0;">
                     <div id="fs-tp-section"></div>
                     <div id="fs-tp-results"></div>
                     <div id="fs-accuracy-summary"></div>
