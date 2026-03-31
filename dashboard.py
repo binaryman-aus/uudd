@@ -79,8 +79,10 @@ def evaluate_zone_accuracy(zone, df):
                     entry_price = z_high               # virtual entry at zone top
                     p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
                     p2_outcome = 'broken'; p2_mag = 0.0
-                else:
-                    pass                               # gapped into zone only — untested
+                else:                                  # gapped into zone, SL not hit
+                    entry_price = bar['open']          # limit fills at open (gap crossed z_high)
+                    p1_outcome = 'bounce'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
+                    filled = True; p2_outcome = 'active'; p2_mag = 0.0
             else:                                      # straddles z_high: limit fills
                 entry_price = min(bar['open'], z_high) # if open below z_high, enter at open
                 p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
@@ -96,8 +98,10 @@ def evaluate_zone_accuracy(zone, df):
                     entry_price = z_low                # virtual entry at zone bottom
                     p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
                     p2_outcome = 'broken'; p2_mag = 0.0
-                else:
-                    pass                               # gapped into zone only — untested
+                else:                                  # gapped into zone, SL not hit
+                    entry_price = bar['open']          # limit fills at open (gap crossed z_low)
+                    p1_outcome = 'bounce'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
+                    filled = True; p2_outcome = 'active'; p2_mag = 0.0
             else:                                      # straddles z_low: limit fills
                 entry_price = max(bar['open'], z_low)  # if open above z_low, enter at open
                 p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'

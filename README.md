@@ -134,8 +134,10 @@ Only the **immediately following bar** is inspected. The logic models a limit or
 |:---|:---|
 | `low > z_high` | **Untested** — price never reached the zone |
 | `low ≤ z_high ≤ high` (straddles) | **Fills** at `min(open, z_high)`; if `low < z_low` same bar → **Break**; else → **Bounce** |
-| `high < z_high` AND `low < z_low` (gap-through) | **Break** — virtual entry recorded at `z_high`; no live fill |
-| `high < z_high` AND `low ≥ z_low` (gap into zone) | **Untested** — price is inside zone but limit not yet reached |
+| `high < z_high` AND `low < z_low` (gap-through) | **Break** — limit fills at `z_high` on the gap (price crossed limit price between bars); SL immediately hit |
+| `high < z_high` AND `low ≥ z_low` (gap into zone) | **Bounce** — fills at `open` (gap crossed `z_high`); SL not hit → Phase 2 active |
+
+> **Gap cases vs straddle:** The straddle condition `low ≤ z_high ≤ high` is *not* technically met when `bar.high < z_high`. However, in both gap cases the bar opened below `z_high` because price crossed it during the inter-bar gap — a limit buy order at `z_high` is triggered in practice and fills at `z_high`. The difference: gap-through (`low < z_low`) hits the SL immediately → **Break**; gap-into-zone (`low ≥ z_low`) does not → **Bounce** with Phase 2 active.
 
 #### Resistance zone — limit sell at `z_low`
 
@@ -143,12 +145,13 @@ Only the **immediately following bar** is inspected. The logic models a limit or
 |:---|:---|
 | `high < z_low` | **Untested** — price never reached the zone |
 | `low ≤ z_low ≤ high` (straddles) | **Fills** at `max(open, z_low)`; if `high > z_high` same bar → **Break**; else → **Bounce** |
-| `low > z_low` AND `high > z_high` (gap-through) | **Break** — virtual entry recorded at `z_low`; no live fill |
-| `low > z_low` AND `high ≤ z_high` (gap into zone) | **Untested** — price is inside zone but limit not yet reached |
+| `low > z_low` AND `high > z_high` (gap-through) | **Break** — limit fills at `z_low` on the gap; SL immediately hit |
+| `low > z_low` AND `high ≤ z_high` (gap into zone) | **Bounce** — fills at `open` (gap crossed `z_low`); SL not hit → Phase 2 active |
 
 **Entry price** is the realistic fill:
 - Normal fill: `min(open, z_high)` for support, `max(open, z_low)` for resistance — accounts for bar opening inside the zone.
-- Gap-through: a virtual entry at the zone boundary (`z_high` for support, `z_low` for resistance) simulates the limit order that would have filled before price gapped to the stop.
+- Gap-through: virtual fill at the zone boundary (`z_high` for support, `z_low` for resistance) — SL is immediately hit so a precise fill price is less meaningful; using the boundary keeps risk = full zone width.
+- Gap-into-zone: fills at `bar.open` — the bar opened inside the zone after gapping through the limit price, so `open` is the realistic execution price.
 
 Phase 1 outcomes: `bounce` / `break` / `untested`.
 
