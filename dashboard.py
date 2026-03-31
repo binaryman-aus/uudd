@@ -75,7 +75,7 @@ def evaluate_zone_accuracy(zone, df):
             if bar['low'] > z_high:
                 pass                                   # price never reached zone — untested
             elif bar['high'] < z_high:
-                if bar['low'] < z_low:                 # gapped through entire zone
+                if bar['low'] <= z_low:                # gapped through entire zone
                     entry_price = z_high               # virtual entry at zone top
                     p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
                     p2_outcome = 'broken'; p2_mag = 0.0
@@ -86,7 +86,7 @@ def evaluate_zone_accuracy(zone, df):
             else:                                      # straddles z_high: limit fills
                 entry_price = min(bar['open'], z_high) # if open below z_high, enter at open
                 p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
-                if bar['low'] < z_low:                 # SL hit on fill bar
+                if bar['low'] <= z_low:                # SL hit on fill bar
                     p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
                 else:
                     p1_outcome = 'bounce'; filled = True; p2_outcome = 'active'; p2_mag = 0.0
@@ -94,7 +94,7 @@ def evaluate_zone_accuracy(zone, df):
             if bar['high'] < z_low:
                 pass                                   # price never reached zone — untested
             elif bar['low'] > z_low:
-                if bar['high'] > z_high:               # gapped through entire zone
+                if bar['high'] >= z_high:              # gapped through entire zone
                     entry_price = z_low                # virtual entry at zone bottom
                     p1_outcome = 'break'; p1_time = int(bar['time'].timestamp()); p1_entry = 'gap'
                     p2_outcome = 'broken'; p2_mag = 0.0
@@ -105,7 +105,7 @@ def evaluate_zone_accuracy(zone, df):
             else:                                      # straddles z_low: limit fills
                 entry_price = max(bar['open'], z_low)  # if open above z_low, enter at open
                 p1_time = int(bar['time'].timestamp()); p1_entry = 'valid'
-                if bar['high'] > z_high:               # SL hit on fill bar
+                if bar['high'] >= z_high:              # SL hit on fill bar
                     p1_outcome = 'break'; p2_outcome = 'broken'; p2_mag = 0.0
                 else:
                     p1_outcome = 'bounce'; filled = True; p2_outcome = 'active'; p2_mag = 0.0
@@ -118,12 +118,12 @@ def evaluate_zone_accuracy(zone, df):
             if zone_type == 'support':
                 if bar['high'] > entry_price:
                     p2_mag = max(p2_mag, (bar['high'] - entry_price) / risk)
-                if bar['low'] < z_low:
+                if bar['low'] <= z_low:
                     p2_outcome = 'broken'; break
             else:
                 if bar['low'] < entry_price:
                     p2_mag = max(p2_mag, (entry_price - bar['low']) / risk)
-                if bar['high'] > z_high:
+                if bar['high'] >= z_high:
                     p2_outcome = 'broken'; break
 
     return {
@@ -517,12 +517,14 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     if (boxData.length > 0) boxSeries.setData(boxData);
                 });
 
-                const containerWidth = container.offsetWidth || 600;
-                chart.timeScale().applyOptions({
-                    barSpacing: Math.max(1, containerWidth / visibleBars),
-                    rightOffset: 5,
+                requestAnimationFrame(() => {
+                    const containerWidth = container.offsetWidth || 600;
+                    chart.timeScale().applyOptions({
+                        barSpacing: Math.max(1, containerWidth / visibleBars),
+                        rightOffset: 5,
+                    });
+                    chart.timeScale().scrollToRealTime();
                 });
-                chart.timeScale().scrollToRealTime();
                 return chart;
             }
 
