@@ -553,12 +553,14 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 e.stopPropagation();
                 if (!fsChartInstance) return;
                 const container = document.getElementById('fs-chart-container');
-                const containerWidth = container.offsetWidth || 600;
-                fsChartInstance.timeScale().applyOptions({
-                    barSpacing: Math.max(1, containerWidth / 500),
-                    rightOffset: 5,
+                requestAnimationFrame(() => {
+                    const containerWidth = container.offsetWidth || 600;
+                    fsChartInstance.timeScale().applyOptions({
+                        barSpacing: Math.max(1, containerWidth / getDefaultBars()),
+                        rightOffset: 5,
+                    });
+                    fsChartInstance.timeScale().scrollToRealTime();
                 });
-                fsChartInstance.timeScale().scrollToRealTime();
             }
 
             function fmtPrice(p) {
@@ -901,7 +903,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 document.getElementById('fs-title').textContent = symbol + ' \u2014 click header or press Esc to close';
                 overlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
-                fsChartInstance   = buildChart(container, symbol, 500, FS_CHART_OPTS);
+                fsChartInstance   = buildChart(container, symbol, getDefaultBars(), FS_CHART_OPTS);
                 fsScatterInstance = buildScatterChart(scatterContainer, symbol);
                 // Sync time scales (logical range — both charts share same bar count)
                 if (fsChartInstance && fsScatterInstance) {
@@ -914,9 +916,11 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         if (syncing || !range) return; syncing = true;
                         fsChartInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
                     });
-                    // Apply initial range from main chart
-                    const initRange = fsChartInstance.timeScale().getVisibleLogicalRange();
-                    if (initRange) fsScatterInstance.timeScale().setVisibleLogicalRange(initRange);
+                    // Apply initial range once buildChart's requestAnimationFrame has settled
+                    requestAnimationFrame(() => {
+                        const initRange = fsChartInstance.timeScale().getVisibleLogicalRange();
+                        if (initRange) fsScatterInstance.timeScale().setVisibleLogicalRange(initRange);
+                    });
                 }
                 renderAccuracyPanel(symbol);
                 if (fsChartInstance) {
