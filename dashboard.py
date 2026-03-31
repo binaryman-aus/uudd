@@ -905,21 +905,16 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 document.body.style.overflow = 'hidden';
                 fsChartInstance   = buildChart(container, symbol, getDefaultBars(), FS_CHART_OPTS);
                 fsScatterInstance = buildScatterChart(scatterContainer, symbol);
-                // Sync time scales — deferred so buildChart's rAF settles first (rightOffset preserved)
+                // Sync scatter from main chart (unidirectional — reverse sync strips rightOffset)
                 if (fsChartInstance && fsScatterInstance) {
                     requestAnimationFrame(() => {
                         if (!fsChartInstance || !fsScatterInstance) return;
-                        let syncing = false;
-                        fsChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                            if (syncing || !range) return; syncing = true;
-                            fsScatterInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
-                        });
-                        fsScatterInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                            if (syncing || !range) return; syncing = true;
-                            fsChartInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
-                        });
                         const initRange = fsChartInstance.timeScale().getVisibleLogicalRange();
                         if (initRange) fsScatterInstance.timeScale().setVisibleLogicalRange(initRange);
+                        fsChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                            if (!range || !fsScatterInstance) return;
+                            fsScatterInstance.timeScale().setVisibleLogicalRange(range);
+                        });
                     });
                 }
                 renderAccuracyPanel(symbol);
