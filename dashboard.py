@@ -905,19 +905,19 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 document.body.style.overflow = 'hidden';
                 fsChartInstance   = buildChart(container, symbol, getDefaultBars(), FS_CHART_OPTS);
                 fsScatterInstance = buildScatterChart(scatterContainer, symbol);
-                // Sync time scales (logical range — both charts share same bar count)
+                // Sync time scales — deferred so buildChart's rAF settles first (rightOffset preserved)
                 if (fsChartInstance && fsScatterInstance) {
-                    let syncing = false;
-                    fsChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                        if (syncing || !range) return; syncing = true;
-                        fsScatterInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
-                    });
-                    fsScatterInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                        if (syncing || !range) return; syncing = true;
-                        fsChartInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
-                    });
-                    // Apply initial range once buildChart's requestAnimationFrame has settled
                     requestAnimationFrame(() => {
+                        if (!fsChartInstance || !fsScatterInstance) return;
+                        let syncing = false;
+                        fsChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                            if (syncing || !range) return; syncing = true;
+                            fsScatterInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
+                        });
+                        fsScatterInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                            if (syncing || !range) return; syncing = true;
+                            fsChartInstance.timeScale().setVisibleLogicalRange(range); syncing = false;
+                        });
                         const initRange = fsChartInstance.timeScale().getVisibleLogicalRange();
                         if (initRange) fsScatterInstance.timeScale().setVisibleLogicalRange(initRange);
                     });
