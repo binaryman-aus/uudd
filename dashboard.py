@@ -387,6 +387,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             <div><strong>S/R Multi-Symbol Dashboard</strong> | H1 Timeframe | <span id="bars-label">Last 150 Bars</span></div>
             <div style="display:flex;align-items:center;gap:10px;">
                 <div id="dashboard-generated">Generated: {{ now }}</div>
+                <div id="reload-countdown" style="font-size:0.75em;color:#aaa;"></div>
                 <button class="settings-btn" onclick="toggleSettings(event)" title="Settings">&#x2699;&#xFE0F;</button>
             </div>
             <div id="settings-panel" onclick="event.stopPropagation()">
@@ -487,6 +488,32 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 }
             }
             document.addEventListener('click', () => closeSettings());
+
+            (function scheduleHourlyReload() {
+                const countdownEl = document.getElementById('reload-countdown');
+                function nextReloadTime() {
+                    const now = new Date();
+                    const next = new Date(now);
+                    next.setSeconds(0);
+                    next.setMilliseconds(0);
+                    next.setMinutes(5);
+                    if (now.getMinutes() >= 5) next.setHours(now.getHours() + 1);
+                    return next;
+                }
+                function updateCountdown() {
+                    const ms = nextReloadTime() - new Date();
+                    const m = Math.floor(ms / 60000);
+                    const s = Math.floor((ms % 60000) / 1000);
+                    if (countdownEl) countdownEl.textContent = 'Reload in ' + m + ':' + String(s).padStart(2,'0');
+                }
+                function arm() {
+                    const delay = nextReloadTime() - new Date();
+                    setTimeout(() => location.reload(), delay);
+                    updateCountdown();
+                    setInterval(updateCountdown, 1000);
+                }
+                arm();
+            })();
 
             const CHART_OPTS = {
                 autoSize: true,
