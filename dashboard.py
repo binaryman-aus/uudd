@@ -160,13 +160,33 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         </script>
         <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
         <style>
-            html, body { 
-                margin: 0; 
-                padding: 0; 
-                width: 100vw; 
-                height: 100vh; 
-                overflow: hidden; 
-                font-family: sans-serif;
+            :root {
+                --fs-xs:   0.72em;
+                --fs-sm:   0.8em;
+                --fs-base: 0.9em;
+                --fs-md:   1em;
+                --fs-lg:   1.2em;
+                --fs-xl:   1.5em;
+                --sp-1: 4px;
+                --sp-2: 8px;
+                --sp-3: 12px;
+                --border-subtle:  #eee;
+                --border-default: #ddd;
+                --border-strong:  #ccc;
+                --clr-sup:   #1a9188;
+                --clr-res:   #d32f2f;
+                --clr-muted: #888;
+                --clr-faint: #bbb;
+                --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                --font-mono: monospace;
+            }
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100vw;
+                height: 100vh;
+                overflow: hidden;
+                font-family: var(--font-sans);
                 background-color: #f0f0f5;
             }
             .dashboard-header {
@@ -177,7 +197,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 align-items: center;
                 justify-content: space-between;
                 padding: 0 15px;
-                font-size: 0.9em;
+                font-size: var(--fs-base);
                 position: sticky;
                 top: 0;
                 z-index: 1000;
@@ -205,9 +225,16 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 height: 600px !important;
                 margin-bottom: 10px;
             }
+            /* Tablet layout */
+            @media (max-width: 900px) and (min-width: 601px) {
+                html, body { overflow: auto; }
+                .grid-container { grid-template-columns: repeat(2, 1fr); grid-template-rows: none; height: auto; }
+                .chart-box { height: 380px; }
+            }
             .chart-box {
                 background: white;
-                border: 1px solid #ccc;
+                border: 1px solid var(--border-default);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.07);
                 position: relative;
                 display: flex;
                 flex-direction: column;
@@ -215,10 +242,10 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             }
             .chart-header {
                 background: #eee;
-                padding: 4px 8px;
-                font-size: 0.8em;
+                padding: var(--sp-1) var(--sp-2);
+                font-size: var(--fs-sm);
                 font-weight: bold;
-                border-bottom: 1px solid #ddd;
+                border-bottom: 1px solid var(--border-default);
                 display: flex;
                 flex-direction: row;
                 align-items: center;
@@ -228,65 +255,65 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 overflow: hidden;
             }
             .chart-header:hover {
-                background: #ddd;
+                background: var(--border-default);
             }
             .reset-btn {
-                background: none;
-                border: 1px solid #aaa;
-                border-radius: 3px;
+                background: rgba(0,0,0,0.06);
+                border: 1px solid var(--border-default);
+                border-radius: 4px;
                 cursor: pointer;
-                font-size: 1em;
+                font-size: var(--fs-sm);
                 line-height: 1;
-                padding: 0px 5px;
+                padding: 2px 7px;
                 color: #555;
                 flex-shrink: 0;
                 align-self: center;
+                transition: background 0.1s;
             }
-            .reset-btn:hover { background: #bbb; color: #000; }
+            .reset-btn:hover { background: var(--border-strong); color: #000; }
             .chart-container {
                 flex-grow: 1;
                 position: relative;
             }
             .sr-label {
-                font-size: 0.8em;
+                font-size: var(--fs-sm);
             }
             .support { color: green; }
             .resistance { color: red; }
             .settings-btn {
                 background: none; border: none; cursor: pointer;
-                font-size: 1.2em; color: white; padding: 4px 8px;
+                font-size: var(--fs-lg); color: white; padding: var(--sp-1) var(--sp-2);
                 line-height: 1; border-radius: 3px;
             }
             .settings-btn:hover { background: rgba(255,255,255,0.15); }
             #settings-panel {
                 display: none; position: absolute; top: 40px; right: 10px;
-                background: white; border: 1px solid #ccc; border-radius: 4px;
+                background: white; border: 1px solid var(--border-strong); border-radius: 4px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000;
                 min-width: 180px; padding: 6px 0;
             }
             .settings-label {
-                padding: 4px 14px; font-size: 0.8em; color: #888;
-                font-weight: bold; text-transform: uppercase;
+                padding: var(--sp-1) 14px; font-size: var(--fs-xs); color: var(--clr-muted);
+                font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em;
             }
             .settings-item {
-                padding: 8px 14px; cursor: pointer; font-size: 0.9em; color: #333;
+                padding: var(--sp-2) 14px; cursor: pointer; font-size: var(--fs-base); color: #333;
             }
             .settings-item:hover { background: #f0f0f0; }
-            .settings-item.active { font-weight: bold; color: #2196F3; }
+            .settings-item.active { font-weight: bold; color: #2196F3; background: #e8f4fe; }
             /* ── Accuracy Panel ──────────────────────────────────────────── */
             #fs-accuracy-panel {
                 background: #fff; color: #333;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                font-size: 0.92em; border-left: 1px solid #e0e0e0;
+                font-size: var(--fs-base); border-left: 1px solid var(--border-subtle);
             }
-            .ap-section { padding: 10px 12px; border-bottom: 1px solid #eee; }
+            .ap-section { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
             .ap-title {
-                font-size: 0.72em; font-weight: 700; text-transform: uppercase;
-                letter-spacing: 0.1em; color: #aaa; margin-bottom: 8px;
+                font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
+                letter-spacing: 0.08em; color: #aaa; margin-bottom: var(--sp-2);
             }
             .ap-input {
-                background: #f7f7f7; border: 1px solid #ddd; border-radius: 4px;
-                color: #333; font-family: monospace; font-size: 0.9em;
+                background: #f7f7f7; border: 1px solid var(--border-default); border-radius: 4px;
+                color: #333; font-family: var(--font-mono); font-size: var(--fs-base);
                 padding: 3px 5px; width: 46px; text-align: right;
                 transition: border-color 0.15s; -moz-appearance: textfield;
             }
@@ -294,65 +321,65 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .ap-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
             .ap-input:focus { outline: none; border-color: #2196F3; background: #fff; }
             .ap-total {
-                font-size: 0.78em; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+                font-size: var(--fs-sm); font-weight: 700; padding: 2px 8px; border-radius: 10px;
             }
             .ap-total.valid   { background: rgba(38,166,154,0.12); color: #1a9188; }
             .ap-total.invalid { background: rgba(239,83,80,0.12);  color: #d32f2f; }
             .ap-pnl-big {
-                text-align: center; font-size: 1.5em; font-weight: 700;
-                font-family: monospace; padding: 6px 0 2px;
+                text-align: center; font-size: var(--fs-xl); font-weight: 700;
+                font-family: var(--font-mono); padding: 6px 0 2px;
             }
             .ap-badge {
-                display: inline-flex; align-items: center; gap: 3px;
-                padding: 2px 8px; border-radius: 10px; font-size: 0.82em; font-weight: 600;
+                display: inline-flex; align-items: center; gap: var(--sp-1);
+                padding: 2px var(--sp-2); border-radius: 10px; font-size: var(--fs-sm); font-weight: 600;
             }
             .ap-badge.grn { background: rgba(38,166,154,0.10); color: #1a9188; }
             .ap-badge.red { background: rgba(239,83,80,0.10);  color: #d32f2f; }
-            .ap-badge.gry { background: rgba(0,0,0,0.06); color: #888; }
-            .ap-badge-row { display: flex; gap: 5px; flex-wrap: wrap; padding: 2px 0; }
+            .ap-badge.gry { background: rgba(0,0,0,0.06); color: var(--clr-muted); }
+            .ap-badge-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; padding: 2px 0; }
             .acc-zone-row {
-                padding: 6px 10px 5px 12px; border-bottom: 1px solid #f0f0f0;
-                cursor: default; border-left: 3px solid #e0e0e0;
+                padding: var(--sp-2) 10px var(--sp-2) 12px; border-bottom: 1px solid #f0f0f0;
+                cursor: default; border-left: 3px solid var(--border-default);
             }
             .acc-zone-row.out-active   { border-left-color: #26a69a; }
             .acc-zone-row.out-broken   { border-left-color: #ef5350; }
-            .acc-zone-row.out-untested { border-left-color: #ddd; }
+            .acc-zone-row.out-untested { border-left-color: var(--clr-faint); }
             .acc-zone-row.highlighted  { background: #fffde7 !important; }
             .zone-dir {
-                font-size: 0.74em; font-weight: 700; padding: 1px 4px;
+                font-size: var(--fs-xs); font-weight: 700; padding: 1px var(--sp-1);
                 border-radius: 3px; margin-right: 3px;
             }
             .zone-dir.sup { background: rgba(38,166,154,0.12); color: #1a9188; }
             .zone-dir.res { background: rgba(239,83,80,0.12);  color: #d32f2f; }
-            .zone-price { font-family: monospace; color: #222; font-size: 0.95em; }
-            .zone-timestamp { font-size: 0.78em; color: #bbb; }
-            .zone-mag   { font-family: monospace; font-size: 0.85em; color: #aaa; }
+            .zone-price { font-family: var(--font-mono); color: #222; font-size: var(--fs-base); }
+            .zone-timestamp { font-size: var(--fs-xs); color: var(--clr-faint); }
+            .zone-mag   { font-family: var(--font-mono); font-size: var(--fs-sm); color: #aaa; }
             .zone-status {
-                font-size: 0.7em; font-weight: 700; padding: 1px 6px; border-radius: 3px;
-                letter-spacing: 0.02em;
+                font-size: var(--fs-xs); font-weight: 700; padding: 1px 6px; border-radius: 3px;
+                letter-spacing: 0.05em;
             }
             .zone-status.st-open     { background: rgba(38,166,154,0.10); color: #1a9188; }
             .zone-status.st-closed   { background: rgba(38,166,154,0.18); color: #0d7a6f; }
             .zone-status.st-sl       { background: rgba(239,83,80,0.10);  color: #d32f2f; }
-            .zone-status.st-untested { background: rgba(0,0,0,0.04);      color: #bbb; }
-            .zone-tp-detail { padding: 4px 10px 6px 12px; display: none; }
+            .zone-status.st-untested { background: rgba(0,0,0,0.04);      color: var(--clr-faint); }
+            .zone-tp-detail { padding: var(--sp-1) 10px var(--sp-2) 12px; display: none; }
             .zone-tp-detail.visible { display: block; }
             .zone-detail-row {
-                display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+                display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap;
             }
-            .zone-tp-row { display: flex; gap: 4px; flex-wrap: wrap; }
+            .zone-tp-row { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
             .tp-pill {
-                font-size: 0.72em; font-weight: 700; padding: 1px 6px; border-radius: 3px;
-                font-family: monospace; letter-spacing: 0.03em;
+                font-size: var(--fs-xs); font-weight: 700; padding: 1px 6px; border-radius: 3px;
+                font-family: var(--font-mono); letter-spacing: 0.03em;
             }
             .tp-pill.hit  { background: rgba(38,166,154,0.12); color: #1a9188; }
             .tp-pill.miss { background: rgba(239,83,80,0.10);  color: #d32f2f; }
             .tp-pill.open { background: rgba(0,0,0,0.05);      color: #999; }
             .tp-pill.sl   { background: rgba(239,83,80,0.15);  color: #c62828; font-style: italic; }
             .zone-pnl-row {
-                font-size: 0.78em; color: #5a6a8a; display: flex; gap: 12px;
+                font-size: var(--fs-sm); color: #5a6a8a; display: flex; gap: var(--sp-3);
             }
-            .zone-pnl-lbl { color: #bbb; margin-right: 4px; }
+            .zone-pnl-lbl { color: var(--clr-faint); margin-right: var(--sp-1); }
         </style>
     </head>
     <body>
@@ -376,7 +403,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 <div class="chart-header" onclick="openFullscreen('{{ symbol }}')">
                     <span id="title-{{ symbol }}">{{ symbol }} 🔍</span>
                     <span style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
-                        <span style="font-family:monospace;font-size:1.2em;letter-spacing:2px;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
+                        <span style="font-family:monospace;font-size:1em;letter-spacing:0.12em;">{% for ch in histories[symbol] %}{% if ch == 'S' %}<span class="support">S</span>{% elif ch == 'R' %}<span class="resistance">R</span>{% else %}<span style="color:#bbb;">~</span>{% endif %}{% endfor %}</span>
                         <button class="reset-btn" onclick="resetChart('{{ symbol }}', event)" title="Reset zoom &amp; position">&#x21BA;</button>
                     </span>
                 </div>
@@ -387,11 +414,11 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
         <!-- Fullscreen overlay: fresh chart instance so grid charts are never resized/corrupted -->
         <div id="fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:white;flex-direction:column;">
-            <div id="fs-header" style="background:#eee;padding:4px 12px;font-size:0.85em;font-weight:bold;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer;" onclick="closeFullscreen()">
+            <div id="fs-header" style="background:#eee;padding:4px 12px;font-size:0.8em;font-weight:bold;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer;" onclick="closeFullscreen()">
                 <span id="fs-title"></span>
                 <span style="display:flex;gap:8px;align-items:center;">
-                    <button class="reset-btn" onclick="resetFsChart(event)" title="Reset zoom &amp; position" style="font-size:1.1em;padding:2px 8px;">&#x21BA; Reset</button>
-                    <span style="font-size:1.1em;padding:2px 8px;background:#ccc;border-radius:3px;">&#x2715; Close</span>
+                    <button class="reset-btn" onclick="resetFsChart(event)" title="Reset zoom &amp; position" style="font-size:1em;padding:2px 8px;">&#x21BA; Reset</button>
+                    <button class="reset-btn" style="font-size:1em;padding:2px 8px;" onclick="closeFullscreen()">&#x2715; Close</button>
                 </span>
             </div>
             <div style="flex:1;display:flex;min-height:0;">
@@ -619,7 +646,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const resultsEl = document.getElementById('fs-tp-results');
                 if (!valid) {
                     if (resultsEl) resultsEl.innerHTML =
-                        '<div class="ap-section" style="color:#ef5350;font-size:0.85em;">Position % must sum to 100%</div>';
+                        '<div class="ap-section" style="color:#ef5350;font-size:0.8em;">Position % must sum to 100%</div>';
                     document.querySelectorAll('.zone-pnl').forEach(el => el.innerHTML = '');
                     document.querySelectorAll('.zone-tp-detail').forEach(el => { el.innerHTML = ''; el.classList.remove('visible'); });
                     return;
@@ -676,7 +703,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                               '<div class="zone-tp-row" style="display:flex;align-items:center;flex:1;min-width:200px;">' + pills + '</div>' +
                               '<div class="zone-pnl-row" style="display:flex;align-items:center;flex:1;min-width:150px;text-align:right;">' +
                               '<span><span class="zone-pnl-lbl">Real.</span>' + rStr + '</span>' +
-                              '<span><span class="zone-pnl-lbl">Unrreal.</span>' + uStr + '</span>' +
+                              '<span><span class="zone-pnl-lbl">Unreal.</span>' + uStr + '</span>' +
                               '</div>' +
                               '</div>' +
                               '</div>';
@@ -690,60 +717,60 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 }
                 function pnlCell(val) {
                     const s = val !== null ? fmtPnl(val, false) : '<span style="color:#ccc;">'+dash+'</span>';
-                    return '<td style="padding:2px 0 2px 6px;font-family:monospace;text-align:right;vertical-align:middle;">'+s+'</td>';
+                    return '<td style="padding:3px 0 3px 8px;font-family:monospace;text-align:right;vertical-align:middle;">'+s+'</td>';
                 }
                 // TP hit-rate cells for a group
                 function tpRateCells(mags) {
-                    if (!mags.length) return tps.map(() => '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;vertical-align:middle;">—</td>').join('');
+                    if (!mags.length) return tps.map(() => '<td style="padding:3px 6px 3px 0;font-family:monospace;font-size:0.8em;color:#ddd;vertical-align:middle;">—</td>').join('');
                     return tps.map((tp, i) => {
                         const pct = Math.round(mags.filter(m => m >= tp.mag).length / mags.length * 100);
                         const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
-                        return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
+                        return '<td style="padding:3px 6px 3px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
                     }).join('');
                 }
                 function groupRow(label, labelColor, mags, pnls, total) {
                     const cnt    = mags.length;
                     const rowPct = total > 0 ? Math.round(cnt / total * 100) : 0;
                     return '<tr>' +
-                        '<td style="padding:4px 8px 4px 0;white-space:nowrap;vertical-align:middle;">' +
-                        '<span style="font-size:0.74em;font-weight:700;color:'+labelColor+';">'+label+'</span>' +
+                        '<td style="padding:4px 8px;white-space:nowrap;vertical-align:middle;">' +
+                        '<span style="font-size:0.72em;font-weight:700;color:'+labelColor+';">'+label+'</span>' +
                         '</td>' +
-                        '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;white-space:nowrap;vertical-align:middle;">' +
-                        cnt + ' <span style="color:#aaa;font-size:0.88em;">('+rowPct+'%)</span>' +
+                        '<td style="padding:4px 8px;font-family:monospace;font-size:0.8em;color:#333;white-space:nowrap;vertical-align:middle;">' +
+                        cnt + ' <span style="color:#aaa;font-size:0.8em;">('+rowPct+'%)</span>' +
                         '</td>' +
                         tpRateCells(mags) +
                         pnlCell(avgPnl(pnls)) +
                         '</tr>';
                 }
                 const untestedTpCells = tps.map(() =>
-                    '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:#ddd;vertical-align:middle;">—</td>'
+                    '<td style="padding:3px 6px 3px 0;font-family:monospace;font-size:0.8em;color:#ddd;vertical-align:middle;">—</td>'
                 ).join('');
                 const untestedPct = totalZones > 0 ? Math.round(untestedCount / totalZones * 100) : 0;
                 const untestedRow = '<tr>' +
-                    '<td style="padding:4px 8px 4px 0;vertical-align:middle;"><span style="font-size:0.74em;font-weight:700;color:#ccc;">Untested</span></td>' +
-                    '<td style="padding:4px 8px 4px 0;font-family:monospace;font-size:0.82em;color:#333;vertical-align:middle;">' +
-                    untestedCount + ' <span style="color:#aaa;font-size:0.88em;">('+untestedPct+'%)</span></td>' +
+                    '<td style="padding:4px 8px;vertical-align:middle;"><span style="font-size:0.72em;font-weight:700;color:#ccc;">Untested</span></td>' +
+                    '<td style="padding:4px 8px;font-family:monospace;font-size:0.8em;color:#333;vertical-align:middle;">' +
+                    untestedCount + ' <span style="color:#aaa;font-size:0.8em;">('+untestedPct+'%)</span></td>' +
                     untestedTpCells +
-                    '<td style="padding:2px 0 2px 6px;color:#ddd;text-align:right;vertical-align:middle;">'+dash+'</td>' +
+                    '<td style="padding:3px 0 3px 8px;color:#ddd;text-align:right;vertical-align:middle;">'+dash+'</td>' +
                     '</tr>';
                 const totalPnl  = filled > 0 ? (sumRealized + sumUnrealized) / filled : null;
                 const totalTpCells = tps.map((tp, i) => {
                     const allMags = [...brokenMags, ...closedMags, ...openMags];
                     const pct = allMags.length ? Math.round(allMags.filter(m => m >= tp.mag).length / allMags.length * 100) : 0;
                     const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
-                    return '<td style="padding:2px 6px 2px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
+                    return '<td style="padding:3px 6px 3px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
                 }).join('');
                 const totalRow = '<tr style="border-top:1px solid #eee;">' +
-                    '<td style="padding:6px 8px 4px 0;vertical-align:middle;"><span style="font-size:0.74em;font-weight:700;color:#333;">Total</span></td>' +
-                    '<td style="padding:6px 8px 4px 0;font-family:monospace;font-size:0.82em;font-weight:700;color:#333;vertical-align:middle;">' + totalZones + '</td>' +
+                    '<td style="padding:6px 8px;vertical-align:middle;"><span style="font-size:0.72em;font-weight:700;color:#333;">Total</span></td>' +
+                    '<td style="padding:6px 8px;font-family:monospace;font-size:0.8em;font-weight:700;color:#333;vertical-align:middle;">' + totalZones + '</td>' +
                     totalTpCells +
                     pnlCell(totalPnl) +
                     '</tr>';
                 const headerRow = '<tr style="border-bottom:1px solid #ddd;">' +
-                    '<td style="padding:4px 8px 4px 0;font-size:0.68em;font-weight:600;color:#888;vertical-align:middle;">Case</td>' +
-                    '<td style="padding:4px 8px 4px 0;font-size:0.68em;font-weight:600;color:#888;vertical-align:middle;"># Zones</td>' +
-                    tps.map((_, i) => '<td style="padding:4px 6px 4px 0;font-size:0.68em;font-weight:600;color:#888;vertical-align:middle;">TP'+(i+1)+'</td>').join('') +
-                    '<td style="padding:4px 0 4px 6px;font-size:0.68em;font-weight:600;color:#888;text-align:right;vertical-align:middle;">P&amp;L</td>' +
+                    '<td style="padding:4px 8px;font-size:0.72em;font-weight:600;color:#888;vertical-align:middle;">Case</td>' +
+                    '<td style="padding:4px 8px;font-size:0.72em;font-weight:600;color:#888;vertical-align:middle;"># Zones</td>' +
+                    tps.map((_, i) => '<td style="padding:4px 6px 4px 0;font-size:0.72em;font-weight:600;color:#888;vertical-align:middle;">TP'+(i+1)+'</td>').join('') +
+                    '<td style="padding:4px 0 4px 8px;font-size:0.72em;font-weight:600;color:#888;text-align:right;vertical-align:middle;">P&amp;L</td>' +
                     '</tr>';
                 if (resultsEl) resultsEl.innerHTML =
                     '<div class="ap-section">' +
@@ -768,16 +795,16 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const valid = Math.abs(total - 100) < 0.01;
                 const rows  = tps.map((tp, i) =>
                     '<tr>' +
-                    '<td style="padding:4px 6px;color:#4a5a8a;font-size:0.8em;font-weight:700;letter-spacing:0.05em;">TP'+(i+1)+'</td>' +
-                    '<td style="padding:4px 4px;"><input id="tp-mag-'+(i+1)+'" class="ap-input" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.82em;">x</span></td>' +
-                    '<td style="padding:4px 4px;"><input id="tp-pct-'+(i+1)+'" class="ap-input" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.82em;">%</span></td>' +
+                    '<td style="padding:4px 6px;color:#4a5a8a;font-size:0.8em;font-weight:700;letter-spacing:0.08em;">TP'+(i+1)+'</td>' +
+                    '<td style="padding:4px 4px;"><input id="tp-mag-'+(i+1)+'" class="ap-input" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.8em;">x</span></td>' +
+                    '<td style="padding:4px 4px;"><input id="tp-pct-'+(i+1)+'" class="ap-input" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.8em;">%</span></td>' +
                     '</tr>'
                 ).join('');
                 document.getElementById('fs-tp-section').innerHTML =
                     '<div class="ap-section">' +
                     '<div class="ap-title">Strategy Simulator</div>' +
                     '<table style="width:100%;border-collapse:collapse;">' +
-                    '<tr style="font-size:0.74em;color:#354060;">' +
+                    '<tr style="font-size:0.72em;color:#354060;">' +
                     '<td></td><td style="padding:2px 4px;">Target</td><td style="padding:2px 4px;">Size</td>' +
                     '</tr>' +
                     rows + '</table>' +
@@ -823,7 +850,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const statusLbl = p2.outcome === 'broken' ? 'Hit SL'
                                     : p2.outcome === 'active' ? 'Open' : 'Untested';
                     const gap      = acc.entry === 'gap'
-                                     ? ' <span style="color:#354060;font-size:0.78em;">gap</span>' : '';
+                                     ? ' <span style="color:#354060;font-size:0.8em;">gap</span>' : '';
                     const detected = fmtTs(z.detected_at);
                     const startTs  = Math.floor(new Date(z.start_time).getTime() / 1000);
                     const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
