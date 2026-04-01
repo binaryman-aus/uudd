@@ -807,11 +807,12 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     '<tr style="font-size:0.72em;color:#354060;">' +
                     '<td></td><td style="padding:2px 4px;">Target</td><td style="padding:2px 4px;">Size</td>' +
                     '</tr>' +
-                    rows + '</table>' +
-                    '<div style="text-align:right;margin-top:7px;">' +
+                    rows +
+                    '<tr><td colspan="3" style="text-align:right;padding:5px 4px 2px;border-top:1px solid #eee;">' +
                     '<span id="fs-tp-total" class="ap-total '+(valid?'valid':'invalid')+'">' +
                     (valid ? '&#x2713;&nbsp;100%' : 'Total: '+total+'%') +
-                    '</span></div></div>';
+                    '</span></td></tr>' +
+                    '</table></div>';
             }
             // ──────────────────────────────────────────────────────────────
 
