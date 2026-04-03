@@ -113,8 +113,12 @@ These boundaries are used directly in accuracy evaluation:
 It is possible for the same bar to simultaneously satisfy both support and resistance conditions (e.g., a doji-like bar with lows and highs both hugging the same tight zone). In this case the winner is decided by a three-tier priority:
 
 1. **Higher touch count wins** — whichever type has more bars touching the zone is reported.
-2. **Larger average wick ratio wins** — if counts are equal, the type with the higher average wick-to-bar-range ratio across its in-zone bars wins. A larger average wick means the level is showing stronger price rejection.
-3. **Resistance wins** — if both count and average wick ratio are identical, resistance is the final fallback.
+2. **Tighter price cluster wins** — if counts are equal, measure how tightly the key prices are clustered across the in-zone bars:
+   - **Resistance**: collect the **High** of every in-zone bar; drop the single highest outlier (allowance for a one-bar false breakout); compute the spread of the remaining Highs as `max(Highs) − min(Highs)`.
+   - **Support**: collect the **Low** of every in-zone bar; drop the single lowest outlier (allowance for a one-bar false breakout); compute the spread of the remaining Lows as `max(Lows) − min(Lows)`.
+
+   Whichever type has the **smaller spread** (i.e. prices cluster more tightly around the level) wins. A tighter cluster indicates a more precise, well-defined level.
+3. **Resistance wins** — if both count and spread are identical, resistance is the final fallback.
 
 Only a single result (`support` or `resistance`) is returned per bar.
 

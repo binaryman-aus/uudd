@@ -110,7 +110,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
         
         # Rejection Wick Validation for Resistance (Upper Wicks)
         wick_valid = True
-        avg_wick_ratio = 0.0
+        price_spread = float('inf')
         if count > 0:
             in_range_bars = recent_df[in_range_mask]
             upper_wicks = (in_range_bars['high'] - in_range_bars[['open', 'close']].max(axis=1))
@@ -119,7 +119,10 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
             # Relaxed: At least 50% of bars touching the level must have the required wick
             wick_met_count = (wick_ratios >= wick_percentage).sum()
             wick_valid = (wick_met_count >= min_wick_bars)
-            avg_wick_ratio = float(wick_ratios.mean())
+            # Tiebreaker: spread of in-zone Highs, dropping the single highest outlier
+            highs = in_range_bars['high'].sort_values()
+            trimmed_highs = highs.iloc[:-1] if len(highs) > 1 else highs
+            price_spread = float(trimmed_highs.max() - trimmed_highs.min())
 
         if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
             if count > max_high_count:
@@ -131,7 +134,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
-                    "avg_wick_ratio": avg_wick_ratio,
+                    "price_spread": price_spread,
                     "start_time": in_range_times.iloc[0].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "end_time": in_range_times.iloc[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "wick_valid": bool(wick_valid),
@@ -164,7 +167,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
         
         # Rejection Wick Validation for Support (Lower Wicks)
         wick_valid = True
-        avg_wick_ratio = 0.0
+        price_spread = float('inf')
         if count > 0:
             in_range_bars = recent_df[in_range_mask]
             lower_wicks = (in_range_bars[['open', 'close']].min(axis=1) - in_range_bars['low'])
@@ -173,7 +176,10 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
             # Relaxed: At least 50% of bars touching the level must have the required wick
             wick_met_count = (wick_ratios >= wick_percentage).sum()
             wick_valid = (wick_met_count >= min_wick_bars)
-            avg_wick_ratio = float(wick_ratios.mean())
+            # Tiebreaker: spread of in-zone Lows, dropping the single lowest outlier
+            lows = in_range_bars['low'].sort_values()
+            trimmed_lows = lows.iloc[1:] if len(lows) > 1 else lows
+            price_spread = float(trimmed_lows.max() - trimmed_lows.min())
 
         if count >= min_bars and not invalid and last_in_range and wick_valid and miss_count <= 1:
             if count > max_low_count:
@@ -185,7 +191,7 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
                     "range_low": float(range_low),
                     "range_high": float(range_high),
                     "count": int(count),
-                    "avg_wick_ratio": avg_wick_ratio,
+                    "price_spread": price_spread,
                     "start_time": in_range_times.iloc[0].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "end_time": in_range_times.iloc[-1].strftime("%Y-%m-%dT%H:%M:%SZ"),
                     "wick_valid": bool(wick_valid),
@@ -193,15 +199,15 @@ def detect_sr(ohlcv_data, n_bars=20, threshold_factor=0.3, min_bars=5, atr_perio
                     "last_in_range": bool(last_in_range)
                 }
 
-    # Decide which one to report: higher count wins; on a tie, larger avg wick ratio wins;
-    # if still tied, resistance wins.
+    # Decide which one to report: higher count wins; on a tie, tighter price cluster wins
+    # (smaller spread of Highs/Lows after dropping one outlier); if still tied, resistance wins.
     sr_found = None
     if best_resistance and best_support:
         if best_resistance['count'] > best_support['count']:
             sr_found = best_resistance
         elif best_support['count'] > best_resistance['count']:
             sr_found = best_support
-        elif best_resistance['avg_wick_ratio'] >= best_support['avg_wick_ratio']:
+        elif best_resistance['price_spread'] <= best_support['price_spread']:
             sr_found = best_resistance
         else:
             sr_found = best_support
