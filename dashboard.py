@@ -11,8 +11,8 @@ from sr_detect import detect_sr, load_config
 CACHE_FILE = "data/pipeline_cache.json"
 
 SYMBOLS = ["US500", "GER40", "JP225", "USOIL", "XAUUSD", "BTCUSD", "AUDUSD", "EURUSD", "USDJPY"]
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "REDACTED")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "REDACTED")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
 
 def build_history_string(bar_timestamps, symbol_results, last_n=10):
