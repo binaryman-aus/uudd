@@ -170,13 +170,17 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 --sp-1: 4px;
                 --sp-2: 8px;
                 --sp-3: 12px;
-                --border-subtle:  #eee;
-                --border-default: #ddd;
-                --border-strong:  #ccc;
-                --clr-sup:   #1a9188;
-                --clr-res:   #d32f2f;
-                --clr-muted: #888;
-                --clr-faint: #bbb;
+                --border-subtle:  rgba(255,255,255,0.06);
+                --border-default: rgba(255,255,255,0.10);
+                --border-strong:  rgba(255,255,255,0.16);
+                --clr-sup:   #26a69a;
+                --clr-res:   #ef5350;
+                --clr-muted: #aaa;
+                --clr-faint: #555;
+                --bg-base:   #1C1B21;
+                --bg-card:   #22212A;
+                --bg-raised: #2A2933;
+                --clr-text:  #e0e0e0;
                 --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                 --font-mono: monospace;
             }
@@ -187,12 +191,13 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 height: 100vh;
                 overflow: hidden;
                 font-family: var(--font-sans);
-                background-color: #f0f0f5;
+                background-color: var(--bg-base);
+                color: var(--clr-text);
             }
             .dashboard-header {
                 height: 40px;
-                background: #333;
-                color: white;
+                background: #12111A;
+                color: var(--clr-text);
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -232,16 +237,17 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 .chart-box { height: 380px; }
             }
             .chart-box {
-                background: white;
+                background: var(--bg-base);
                 border: 1px solid var(--border-default);
-                box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+                box-shadow: 0 1px 3px rgba(0,0,0,0.4);
                 position: relative;
                 display: flex;
                 flex-direction: column;
                 overflow: hidden;
             }
             .chart-header {
-                background: #eee;
+                background: var(--bg-card);
+                color: var(--clr-text);
                 padding: var(--sp-1) var(--sp-2);
                 font-size: var(--fs-sm);
                 font-weight: bold;
@@ -255,22 +261,22 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 overflow: hidden;
             }
             .chart-header:hover {
-                background: var(--border-default);
+                background: var(--bg-raised);
             }
             .reset-btn {
-                background: rgba(0,0,0,0.06);
+                background: rgba(255,255,255,0.08);
                 border: 1px solid var(--border-default);
                 border-radius: 4px;
                 cursor: pointer;
                 font-size: var(--fs-sm);
                 line-height: 1;
                 padding: 2px 7px;
-                color: #555;
+                color: #aaa;
                 flex-shrink: 0;
                 align-self: center;
                 transition: background 0.1s;
             }
-            .reset-btn:hover { background: var(--border-strong); color: #000; }
+            .reset-btn:hover { background: var(--border-strong); color: #fff; }
             .chart-container {
                 flex-grow: 1;
                 position: relative;
@@ -282,14 +288,14 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .resistance { color: red; }
             .settings-btn {
                 background: none; border: none; cursor: pointer;
-                font-size: var(--fs-lg); color: white; padding: var(--sp-1) var(--sp-2);
+                font-size: var(--fs-lg); color: var(--clr-text); padding: var(--sp-1) var(--sp-2);
                 line-height: 1; border-radius: 3px;
             }
-            .settings-btn:hover { background: rgba(255,255,255,0.15); }
+            .settings-btn:hover { background: rgba(255,255,255,0.10); }
             #settings-panel {
                 display: none; position: absolute; top: 40px; right: 10px;
-                background: white; border: 1px solid var(--border-strong); border-radius: 4px;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2000;
+                background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: 4px;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.6); z-index: 2000;
                 min-width: 180px; padding: 6px 0;
             }
             .settings-label {
@@ -297,29 +303,29 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 font-weight: bold; text-transform: uppercase; letter-spacing: 0.08em;
             }
             .settings-item {
-                padding: var(--sp-2) 14px; cursor: pointer; font-size: var(--fs-base); color: #333;
+                padding: var(--sp-2) 14px; cursor: pointer; font-size: var(--fs-base); color: var(--clr-text);
             }
-            .settings-item:hover { background: #f0f0f0; }
-            .settings-item.active { font-weight: bold; color: #2196F3; background: #e8f4fe; }
+            .settings-item:hover { background: var(--bg-raised); }
+            .settings-item.active { font-weight: bold; color: #29B6F6; background: rgba(41,182,246,0.12); }
             /* ── Accuracy Panel ──────────────────────────────────────────── */
             #fs-accuracy-panel {
-                background: #fff; color: #333;
+                background: var(--bg-card); color: var(--clr-text);
                 font-size: var(--fs-base); border-left: 1px solid var(--border-subtle);
             }
             .ap-section { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
             .ap-title {
                 font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase;
-                letter-spacing: 0.08em; color: #aaa; margin-bottom: var(--sp-2);
+                letter-spacing: 0.08em; color: var(--clr-muted); margin-bottom: var(--sp-2);
             }
             .ap-input {
-                background: #f7f7f7; border: 1px solid var(--border-default); border-radius: 4px;
-                color: #333; font-family: var(--font-mono); font-size: var(--fs-base);
+                background: var(--bg-raised); border: 1px solid var(--border-default); border-radius: 4px;
+                color: var(--clr-text); font-family: var(--font-mono); font-size: var(--fs-base);
                 padding: 3px 5px; width: 46px; text-align: right;
                 transition: border-color 0.15s; -moz-appearance: textfield;
             }
             .ap-input::-webkit-outer-spin-button,
             .ap-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-            .ap-input:focus { outline: none; border-color: #2196F3; background: #fff; }
+            .ap-input:focus { outline: none; border-color: #29B6F6; background: var(--bg-card); }
             .ap-total {
                 font-size: var(--fs-sm); font-weight: 700; padding: 2px 8px; border-radius: 10px;
             }
@@ -338,20 +344,20 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .ap-badge.gry { background: rgba(0,0,0,0.06); color: var(--clr-muted); }
             .ap-badge-row { display: flex; gap: var(--sp-2); flex-wrap: wrap; padding: 2px 0; }
             .acc-zone-row {
-                padding: var(--sp-2) 10px var(--sp-2) 12px; border-bottom: 1px solid #f0f0f0;
+                padding: var(--sp-2) 10px var(--sp-2) 12px; border-bottom: 1px solid var(--border-subtle);
                 cursor: default; border-left: 3px solid var(--border-default);
             }
             .acc-zone-row.out-active   { border-left-color: #26a69a; }
             .acc-zone-row.out-broken   { border-left-color: #ef5350; }
             .acc-zone-row.out-untested { border-left-color: var(--clr-faint); }
-            .acc-zone-row.highlighted  { background: #fffde7 !important; }
+            .acc-zone-row.highlighted  { background: rgba(255,202,40,0.08) !important; }
             .zone-dir {
                 font-size: var(--fs-xs); font-weight: 700; padding: 1px var(--sp-1);
                 border-radius: 3px; margin-right: 3px;
             }
             .zone-dir.sup { background: rgba(38,166,154,0.12); color: #1a9188; }
             .zone-dir.res { background: rgba(239,83,80,0.12);  color: #d32f2f; }
-            .zone-price { font-family: var(--font-mono); color: #222; font-size: var(--fs-base); }
+            .zone-price { font-family: var(--font-mono); color: var(--clr-text); font-size: var(--fs-base); }
             .zone-timestamp { font-size: var(--fs-xs); color: var(--clr-faint); }
             .zone-mag   { font-family: var(--font-mono); font-size: var(--fs-sm); color: #aaa; }
             .zone-status {
@@ -377,7 +383,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             .tp-pill.open { background: rgba(0,0,0,0.05);      color: #999; }
             .tp-pill.sl   { background: rgba(239,83,80,0.15);  color: #c62828; font-style: italic; }
             .zone-pnl-row {
-                font-size: var(--fs-sm); color: #5a6a8a; display: flex; gap: var(--sp-3);
+                font-size: var(--fs-sm); color: #8a9aba; display: flex; gap: var(--sp-3);
             }
             .zone-pnl-lbl { color: var(--clr-faint); margin-right: var(--sp-1); }
         </style>
@@ -414,8 +420,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
         </div>
 
         <!-- Fullscreen overlay: fresh chart instance so grid charts are never resized/corrupted -->
-        <div id="fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:white;flex-direction:column;">
-            <div id="fs-header" style="background:#eee;padding:4px 12px;font-size:0.8em;font-weight:bold;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer;" onclick="closeFullscreen()">
+        <div id="fs-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:#1C1B21;flex-direction:column;">
+            <div id="fs-header" style="background:#22212A;color:#e0e0e0;padding:4px 12px;font-size:0.8em;font-weight:bold;border-bottom:1px solid rgba(255,255,255,0.10);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;cursor:pointer;" onclick="closeFullscreen()">
                 <span id="fs-title"></span>
                 <span style="display:flex;gap:8px;align-items:center;">
                     <button class="reset-btn" onclick="resetFsChart(event)" title="Reset zoom &amp; position" style="font-size:1em;padding:2px 8px;">&#x21BA; Reset</button>
@@ -425,7 +431,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
             <div style="flex:1;display:flex;min-height:0;">
                 <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
                     <div id="fs-chart-container" style="flex:7;position:relative;min-height:0;"></div>
-                    <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid #eee;"></div>
+                    <div id="fs-scatter-container" style="flex:3;position:relative;min-height:0;border-top:1px solid rgba(255,255,255,0.08);"></div>
                 </div>
                 <div id="fs-accuracy-panel" style="width:450px;overflow-y:auto;flex-shrink:0;">
                     <div id="fs-tp-section"></div>
@@ -517,8 +523,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
             const CHART_OPTS = {
                 autoSize: true,
-                layout: { background: { type: 'solid', color: 'white' }, textColor: '#333' },
-                grid: { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
+                layout: { background: { type: 'solid', color: '#1C1B21' }, textColor: '#e0e0e0' },
+                grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
                 timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false },
                 rightPriceScale: { autoScale: true, borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.1 } },
                 handleScroll: { mouseWheel: !isPhone, pressedMouseMove: !isPhone, horzTouchDrag: !isPhone, vertTouchDrag: false },
@@ -540,8 +546,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const chart = LightweightCharts.createChart(container, opts);
 
                 const candleSeries = chart.addCandlestickSeries({
-                    upColor: '#26a69a', downColor: '#ef5350',
-                    borderVisible: false, wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+                    upColor: '#29B6F6', downColor: '#FFCA28',
+                    borderVisible: false, wickUpColor: '#29B6F6', wickDownColor: '#FFCA28',
                 });
                 candleSeries.setData(chartData);
                 if (opts === FS_CHART_OPTS) fsCandleSeriesRef = candleSeries;
@@ -762,8 +768,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         '<td style="padding:4px 8px;white-space:nowrap;vertical-align:middle;">' +
                         '<span style="font-size:0.72em;font-weight:700;color:'+labelColor+';">'+label+'</span>' +
                         '</td>' +
-                        '<td style="padding:4px 8px;font-family:monospace;font-size:0.8em;color:#333;white-space:nowrap;vertical-align:middle;">' +
-                        cnt + ' <span style="color:#aaa;font-size:0.8em;">('+rowPct+'%)</span>' +
+                        '<td style="padding:4px 8px;font-family:monospace;font-size:0.8em;color:#e0e0e0;white-space:nowrap;vertical-align:middle;">' +
+                        cnt + ' <span style="color:#888;font-size:0.8em;">('+rowPct+'%)</span>' +
                         '</td>' +
                         tpRateCells(mags) +
                         pnlCell(avgPnl(pnls)) +
@@ -774,9 +780,9 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 ).join('');
                 const untestedPct = totalZones > 0 ? Math.round(untestedCount / totalZones * 100) : 0;
                 const untestedRow = '<tr>' +
-                    '<td style="padding:4px 8px;vertical-align:middle;"><span style="font-size:0.72em;font-weight:700;color:#ccc;">Untested</span></td>' +
-                    '<td style="padding:4px 8px;font-family:monospace;font-size:0.8em;color:#333;vertical-align:middle;">' +
-                    untestedCount + ' <span style="color:#aaa;font-size:0.8em;">('+untestedPct+'%)</span></td>' +
+                    '<td style="padding:4px 8px;vertical-align:middle;"><span style="font-size:0.72em;font-weight:700;color:#666;">Untested</span></td>' +
+                    '<td style="padding:4px 8px;font-family:monospace;font-size:0.8em;color:#e0e0e0;vertical-align:middle;">' +
+                    untestedCount + ' <span style="color:#888;font-size:0.8em;">('+untestedPct+'%)</span></td>' +
                     untestedTpCells +
                     '<td style="padding:3px 0 3px 8px;color:#ddd;text-align:right;vertical-align:middle;">'+dash+'</td>' +
                     '</tr>';
@@ -787,17 +793,17 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const c   = pct >= 50 ? '#1a9188' : (pct >= 25 ? '#5a6a8a' : '#bbb');
                     return '<td style="padding:3px 6px 3px 0;font-family:monospace;font-size:0.8em;color:'+c+';vertical-align:middle;">'+pct+'%</td>';
                 }).join('');
-                const totalRow = '<tr style="border-top:1px solid #eee;">' +
-                    '<td style="padding:6px 8px;vertical-align:middle;"><span style="font-size:0.72em;font-weight:700;color:#333;">Total</span></td>' +
-                    '<td style="padding:6px 8px;font-family:monospace;font-size:0.8em;font-weight:700;color:#333;vertical-align:middle;">' + totalZones + '</td>' +
+                const totalRow = '<tr style="border-top:1px solid rgba(255,255,255,0.10);">' +
+                    '<td style="padding:6px 8px;vertical-align:middle;"><span style="font-size:0.72em;font-weight:700;color:#e0e0e0;">Total</span></td>' +
+                    '<td style="padding:6px 8px;font-family:monospace;font-size:0.8em;font-weight:700;color:#e0e0e0;vertical-align:middle;">' + totalZones + '</td>' +
                     totalTpCells +
                     pnlCell(totalPnl) +
                     '</tr>';
-                const headerRow = '<tr style="border-bottom:1px solid #ddd;">' +
-                    '<td style="padding:4px 8px;font-size:0.72em;font-weight:600;color:#888;vertical-align:middle;">Case</td>' +
-                    '<td style="padding:4px 8px;font-size:0.72em;font-weight:600;color:#888;vertical-align:middle;"># Zones</td>' +
-                    tps.map((_, i) => '<td style="padding:4px 6px 4px 0;font-size:0.72em;font-weight:600;color:#888;vertical-align:middle;">TP'+(i+1)+'</td>').join('') +
-                    '<td style="padding:4px 0 4px 8px;font-size:0.72em;font-weight:600;color:#888;text-align:right;vertical-align:middle;">P&amp;L</td>' +
+                const headerRow = '<tr style="border-bottom:1px solid rgba(255,255,255,0.10);">' +
+                    '<td style="padding:4px 8px;font-size:0.72em;font-weight:600;color:#aaa;vertical-align:middle;">Case</td>' +
+                    '<td style="padding:4px 8px;font-size:0.72em;font-weight:600;color:#aaa;vertical-align:middle;"># Zones</td>' +
+                    tps.map((_, i) => '<td style="padding:4px 6px 4px 0;font-size:0.72em;font-weight:600;color:#aaa;vertical-align:middle;">TP'+(i+1)+'</td>').join('') +
+                    '<td style="padding:4px 0 4px 8px;font-size:0.72em;font-weight:600;color:#aaa;text-align:right;vertical-align:middle;">P&amp;L</td>' +
                     '</tr>';
                 if (resultsEl) resultsEl.innerHTML =
                     '<div class="ap-section">' +
@@ -822,20 +828,20 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                 const valid = Math.abs(total - 100) < 0.01;
                 const rows  = tps.map((tp, i) =>
                     '<tr>' +
-                    '<td style="padding:4px 6px;color:#4a5a8a;font-size:0.8em;font-weight:700;letter-spacing:0.08em;">TP'+(i+1)+'</td>' +
-                    '<td style="padding:4px 4px;"><input id="tp-mag-'+(i+1)+'" class="ap-input" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.8em;">x</span></td>' +
-                    '<td style="padding:4px 4px;"><input id="tp-pct-'+(i+1)+'" class="ap-input" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()"> <span style="color:#3e4e70;font-size:0.8em;">%</span></td>' +
+                    '<td style="padding:4px 6px;color:#8a9aba;font-size:0.8em;font-weight:700;letter-spacing:0.08em;">TP'+(i+1)+'</td>' +
+                    '<td style="padding:4px 4px;"><input id="tp-mag-'+(i+1)+'" class="ap-input" type="number" value="'+tp.mag+'" min="0.1" step="0.1" oninput="onTpChange()"> <span style="color:#6a7a9a;font-size:0.8em;">x</span></td>' +
+                    '<td style="padding:4px 4px;"><input id="tp-pct-'+(i+1)+'" class="ap-input" type="number" value="'+tp.pct+'" min="0" max="100" step="1" oninput="onTpChange()"> <span style="color:#6a7a9a;font-size:0.8em;">%</span></td>' +
                     '</tr>'
                 ).join('');
                 document.getElementById('fs-tp-section').innerHTML =
                     '<div class="ap-section">' +
                     '<div class="ap-title">Strategy Simulator</div>' +
                     '<table style="width:100%;border-collapse:collapse;">' +
-                    '<tr style="font-size:0.72em;color:#354060;">' +
+                    '<tr style="font-size:0.72em;color:#8a9aba;">' +
                     '<td></td><td style="padding:2px 4px;">Target</td><td style="padding:2px 4px;">Size</td>' +
                     '</tr>' +
                     rows +
-                    '<tr><td colspan="3" style="text-align:right;padding:5px 4px 2px;border-top:1px solid #eee;">' +
+                    '<tr><td colspan="3" style="text-align:right;padding:5px 4px 2px;border-top:1px solid rgba(255,255,255,0.08);">' +
                     '<span id="fs-tp-total" class="ap-total '+(valid?'valid':'invalid')+'">' +
                     (valid ? '&#x2713;&nbsp;100%' : 'Total: '+total+'%') +
                     '</span></td></tr>' +
@@ -878,7 +884,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     const statusLbl = p2.outcome === 'broken' ? 'Hit SL'
                                     : p2.outcome === 'active' ? 'Open' : 'Untested';
                     const gap      = acc.entry === 'gap'
-                                     ? ' <span style="color:#354060;font-size:0.8em;">gap</span>' : '';
+                                     ? ' <span style="color:#8a9aba;font-size:0.8em;">gap</span>' : '';
                     const detected = fmtTs(z.detected_at);
                     const startTs  = Math.floor(new Date(z.start_time).getTime() / 1000);
                     const endTs    = Math.floor(new Date(z.end_time).getTime() / 1000);
@@ -920,8 +926,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 const chart = LightweightCharts.createChart(container, {
                     autoSize: true,
-                    layout: { background: { type: 'solid', color: '#fafafa' }, textColor: '#555' },
-                    grid: { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+                    layout: { background: { type: 'solid', color: '#1C1B21' }, textColor: '#aaa' },
+                    grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
                     timeScale: { timeVisible: true, secondsVisible: false, borderVisible: false, rightOffset: 5 },
                     rightPriceScale: { autoScale: true, borderVisible: false, scaleMargins: { top: 0.1, bottom: 0.1 } },
                     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -931,7 +937,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
 
                 // Zero baseline
                 chart.addLineSeries({
-                    color: '#bbb', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
+                    color: 'rgba(255,255,255,0.2)', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed,
                     priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
                 }).setData([
                     { time: candles[0].time, value: 0 },
@@ -1028,7 +1034,7 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                         ? ' <span style="color:white;background:#ef5350;padding:1px 4px;border-radius:3px;font-weight:bold;font-size:0.8em;margin-left:5px;">\u26a0\ufe0f OUTDATED</span>'
                         : '';
                     document.getElementById(`title-${symbol}`).innerHTML =
-                        `${symbol}${warning} &#x1F50D; <span style="font-weight:normal;color:#666;">UTC: ${utcStr} | Local: ${localStr}</span>`;
+                        `${symbol}${warning} &#x1F50D; <span style="font-weight:normal;color:#888;">UTC: ${utcStr} | Local: ${localStr}</span>`;
                 }
 
                 gridCharts[symbol] = buildChart(container, symbol, getDefaultBars());
