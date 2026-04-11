@@ -912,8 +912,8 @@ def generate_dashboard(all_results, params, output_file="dashboard.html"):
                     if (!p2 || p2.max_magnitude === null || p2.max_magnitude === undefined) return;
                     const val   = z.result === 'support' ? p2.max_magnitude : -p2.max_magnitude;
                     const color = z.result === 'support'
-                        ? (p2.outcome === 'active' ? 'rgba(38,166,154,0.35)' : 'rgba(38,166,154,0.85)')
-                        : (p2.outcome === 'active' ? 'rgba(239,83,80,0.35)'  : 'rgba(239,83,80,0.85)');
+                        ? (p2.outcome === 'active' ? 'rgba(38,166,154,0.15)' : 'rgba(38,166,154,0.85)')
+                        : (p2.outcome === 'active' ? 'rgba(239,83,80,0.15)'  : 'rgba(239,83,80,0.85)');
                     zoneMap[z.detected_at] = { value: val, color };
                 });
 
